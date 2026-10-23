@@ -15,6 +15,10 @@ public class AuthService(AppDbContext db, TokenService tokens, IPasswordHasher<U
         var username = req.Username.Trim();
         var email = req.Email.Trim().ToLowerInvariant();
 
+        // VI: Username SuperAdmin trong cấu hình chỉ do server tạo lúc khởi động, không đăng ký công khai được.
+        // EN: Configured SuperAdmin usernames are created by the server at start-up and cannot be signed up for.
+        if (admins.IsConfiguredSuperAdmin(username))
+            throw new ConflictException("Username is already taken.");
         if (await db.Users.AnyAsync(u => u.Username.ToLower() == username.ToLower(), ct))
             throw new ConflictException("Username is already taken.");
         if (await db.Users.AnyAsync(u => u.Email == email, ct))
@@ -28,8 +32,7 @@ public class AuthService(AppDbContext db, TokenService tokens, IPasswordHasher<U
             Email = email,
             DisplayName = string.IsNullOrWhiteSpace(req.DisplayName) ? username : req.DisplayName.Trim(),
             TimeZone = req.TimeZone ?? "Asia/Ho_Chi_Minh",
-            PomodoroSettings = new PomodoroSettings(),
-            Role = admins.IsConfiguredSuperAdmin(username) ? UserRole.SuperAdmin : UserRole.User
+            PomodoroSettings = new PomodoroSettings()
         };
         user.PasswordHash = hasher.HashPassword(user, req.Password);
         user.Playlists.Add(new Playlist { Name = "Favorites", IsDefault = true });

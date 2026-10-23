@@ -54,14 +54,17 @@ Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 
 ```bash
 cd backend
+# one time: JWT signing key (kept outside the repo, at least 32 characters)
+dotnet user-secrets --project src/StudyHub.Api set "Jwt:Key" "<random string, 32+ characters>"
 dotnet run --project src/StudyHub.Api --launch-profile http
 dotnet test
 ```
 
+- No JWT key is stored in `appsettings*.json`. Without one the server stops at start-up and says how to set it.
 - App (the backend also serves the frontend): <http://localhost:5080>
 - API docs (Scalar, Development only): <http://localhost:5080/scalar>
 - The SQLite database is created automatically on first run.
-- To get an admin account, add `your-username` to `Admin:SuperAdmins` in `appsettings.json` (or user-secrets) and sign up with that name.
+- To get an admin account, add `your-username` to `Admin:SuperAdmins` (user-secrets or env var `Admin__SuperAdmins__0`) and restart. If the account does not exist yet, the server creates it and prints a one-time password in the log; sign in and change it. That username cannot be taken through sign-up.
 
 ### API overview
 
@@ -131,14 +134,17 @@ Cần cài [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
 
 ```bash
 cd backend
+# một lần: khóa ký JWT (lưu ngoài repo, ít nhất 32 ký tự)
+dotnet user-secrets --project src/StudyHub.Api set "Jwt:Key" "<chuỗi ngẫu nhiên, 32+ ký tự>"
 dotnet run --project src/StudyHub.Api --launch-profile http
 dotnet test
 ```
 
+- Không có khóa JWT nào trong `appsettings*.json`. Thiếu khóa thì server dừng lúc khởi động và báo cách đặt.
 - App (backend phục vụ luôn frontend): <http://localhost:5080>
 - Tài liệu API (Scalar, chỉ ở Development): <http://localhost:5080/scalar>
 - Database SQLite tự tạo ở lần chạy đầu.
-- Muốn có tài khoản admin: thêm `your-username` vào `Admin:SuperAdmins` trong `appsettings.json` (hoặc user-secrets) rồi đăng ký bằng đúng tên đó.
+- Muốn có tài khoản admin: thêm `your-username` vào `Admin:SuperAdmins` (user-secrets hoặc biến môi trường `Admin__SuperAdmins__0`) rồi khởi động lại. Nếu tài khoản chưa có, server tự tạo và in mật khẩu dùng một lần ra log; đăng nhập rồi đổi mật khẩu. Username đó không đăng ký công khai được.
 
 ### Tổng quan API
 

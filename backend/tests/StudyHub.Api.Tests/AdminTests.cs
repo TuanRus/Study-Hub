@@ -1,8 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 using StudyHub.Api.Data;
 using StudyHub.Api.Dtos;
 using StudyHub.Api.Entities;
@@ -206,6 +208,54 @@ public class AdminTests(StudyHubFactory factory) : IClassFixture<StudyHubFactory
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         Assert.Equal(1, await new AdminBootstrap(config).PromoteConfiguredSuperAdminsAsync(db));
         Assert.Equal(UserRole.SuperAdmin, await db.Users.Where(u => u.Username == name).Select(u => u.Role).SingleAsync());
+    }
+
+    [Fact]
+    public async Task Configured_super_admin_username_cannot_be_registered()
+    {
+        var client = factory.CreateClient();
+        foreach (var name in new[] { StudyHubFactory.SuperAdminUsername, StudyHubFactory.SuperAdminUsername.ToUpperInvariant() })
+        {
+            var res = await client.PostAsJsonAsync("/api/auth/register",
+                new RegisterRequest(name, $"{Guid.NewGuid():N}@example.com", "password123"));
+            Assert.Equal(HttpStatusCode.Conflict, res.StatusCode);
+        }
+    }
+
+    [Fact]
+    public async Task Missing_super_admin_is_created_once_with_a_working_random_password()
+    {
+        var name = NewName();
+        var bootstrap = new AdminBootstrap(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Admin:SuperAdmins:0"] = name })
+            .Build());
+
+        // VI: Factory riêng để không làm lệch số SuperAdmin ở các test khác. EN: Own factory so other tests' SuperAdmin counts stay the same.
+        using var own = new StudyHubFactory();
+        using var scope = own.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
+
+        var created = await bootstrap.CreateMissingSuperAdminsAsync(db, hasher, NullLogger.Instance);
+        var account = Assert.Single(created);
+        Assert.Equal(name, account.Username);
+        Assert.True(account.Password.Length >= 20);
+
+        var login = await own.CreateClient().PostAsJsonAsync("/api/auth/login", new LoginRequest(name, account.Password));
+        Assert.Equal(HttpStatusCode.OK, login.StatusCode);
+        Assert.Equal("SuperAdmin", (await login.Content.ReadFromJsonAsync<AuthResponse>(TestJson.Options))!.User.Role);
+
+        Assert.Empty(await bootstrap.CreateMissingSuperAdminsAsync(db, hasher, NullLogger.Instance));
+        Assert.Equal(1, await db.Users.CountAsync(u => u.Username == name));
+    }
+
+    [Fact]
+    public async Task Configured_super_admin_exists_after_startup()
+    {
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var roles = await db.Users.Where(u => u.Username == StudyHubFactory.SuperAdminUsername).Select(u => u.Role).ToListAsync();
+        Assert.Equal([UserRole.SuperAdmin], roles);
     }
 
     [Fact]

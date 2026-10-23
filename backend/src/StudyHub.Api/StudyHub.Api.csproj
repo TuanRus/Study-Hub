@@ -7,6 +7,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
     <InvariantGlobalization>false</InvariantGlobalization>
+    <UserSecretsId>studyhub-api-7d3f1c2e-5b8a-4e61-9a0d-2c4f6e8b1a37</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>

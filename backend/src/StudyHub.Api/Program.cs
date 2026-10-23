@@ -118,13 +118,15 @@ if (config.GetValue("Database:MigrateOnStartup", true))
     scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.Migrate();
 }
 
-// VI: Nâng quyền SuperAdmin cho các username khai báo trong Admin:SuperAdmins (nếu tài khoản đã tồn tại).
-// EN: Promote the usernames listed in Admin:SuperAdmins to SuperAdmin (when the accounts already exist).
+// VI: Username trong Admin:SuperAdmins: đã có tài khoản thì nâng lên SuperAdmin, chưa có thì tạo với mật khẩu ngẫu nhiên (in ra log).
+// EN: Usernames in Admin:SuperAdmins: existing accounts become SuperAdmin, missing ones are created with a random password (logged).
 using (var scope = app.Services.CreateScope())
 {
-    var promoted = await app.Services.GetRequiredService<AdminBootstrap>()
-        .PromoteConfiguredSuperAdminsAsync(scope.ServiceProvider.GetRequiredService<AppDbContext>());
+    var bootstrap = app.Services.GetRequiredService<AdminBootstrap>();
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    var promoted = await bootstrap.PromoteConfiguredSuperAdminsAsync(db);
     if (promoted > 0) app.Logger.LogInformation("Promoted {Count} configured super admin account(s).", promoted);
+    await bootstrap.CreateMissingSuperAdminsAsync(db, scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>(), app.Logger);
 }
 
 app.UseExceptionHandler();

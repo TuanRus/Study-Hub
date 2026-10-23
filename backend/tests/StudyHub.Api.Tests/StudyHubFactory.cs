@@ -1,8 +1,13 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using StudyHub.Api.Data;
 using StudyHub.Api.Dtos;
+using StudyHub.Api.Entities;
 
 namespace StudyHub.Api.Tests;
 
@@ -11,6 +16,7 @@ namespace StudyHub.Api.Tests;
 public class StudyHubFactory : WebApplicationFactory<Program>
 {
     public const string SuperAdminUsername = "rootadmin";
+    public const string TestJwtKey = "test-only-key-0123456789-abcdefghijklmnopqrstuvwxyz";
     private readonly SemaphoreSlim _adminLock = new(1, 1);
     private string? _adminToken;
 
@@ -19,6 +25,7 @@ public class StudyHubFactory : WebApplicationFactory<Program>
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Development");
+        builder.UseSetting("Jwt:Key", TestJwtKey);
         builder.UseSetting("ConnectionStrings:Default", $"Data Source={_dbPath};Pooling=false");
         builder.UseSetting("RateLimiting:AuthPermitsPerMinute", "1000");
         builder.UseSetting("RateLimiting:PublicProfilePermitsPerMinute", "1000");
@@ -45,8 +52,18 @@ public class StudyHubFactory : WebApplicationFactory<Program>
         {
             if (_adminToken is null)
             {
-                var res = await CreateClient().PostAsJsonAsync("/api/auth/register",
-                    new RegisterRequest(SuperAdminUsername, "root@example.com", "password123"));
+                // VI: Server đã tạo sẵn tài khoản lúc khởi động với mật khẩu ngẫu nhiên; test đặt lại mật khẩu đã biết.
+                // EN: The server created the account at start-up with a random password; the test sets a known one.
+                using (var scope = Services.CreateScope())
+                {
+                    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+                    var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
+                    var admin = await db.Users.SingleAsync(u => u.Username == SuperAdminUsername);
+                    admin.PasswordHash = hasher.HashPassword(admin, "password123");
+                    await db.SaveChangesAsync();
+                }
+                var res = await CreateClient().PostAsJsonAsync("/api/auth/login",
+                    new LoginRequest(SuperAdminUsername, "password123"));
                 res.EnsureSuccessStatusCode();
                 _adminToken = (await res.Content.ReadFromJsonAsync<AuthResponse>(TestJson.Options))!.AccessToken;
             }
