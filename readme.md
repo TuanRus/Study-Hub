@@ -1,77 +1,155 @@
-# Study Hub - Productivity Web Application
-*Vietnamese: Ứng Dụng Web Hỗ Trợ Học Tập*
+# Study Hub
 
-## 1. Project Overview / Tổng quan dự án
+**[English](#english) · [Tiếng Việt](#tiếng-việt)**
 
-**[EN]**
-Study Hub is a comprehensive, frontend-only web application designed to enhance personal productivity and focus. Built entirely with Vanilla JavaScript, HTML5, and CSS3, the project avoids heavy frameworks while still maintaining a modern, scalable, and maintainable codebase through ES6 Modules and a Feature-Based architecture. It provides users with essential study tools in a single, unified interface.
+<a id="english"></a>
 
-**[VN]**
-Study Hub là một ứng dụng web thuần giao diện (frontend) toàn diện được thiết kế để nâng cao năng suất và sự tập trung cá nhân. Được xây dựng hoàn toàn bằng Vanilla JavaScript, HTML5 và CSS3, dự án không sử dụng các framework nặng nề nhưng vẫn duy trì một mã nguồn hiện đại, dễ mở rộng và bảo trì thông qua ES6 Modules và kiến trúc Feature-Based (chia theo tính năng). Ứng dụng cung cấp cho người dùng các công cụ học tập thiết yếu trong một giao diện duy nhất.
+## 🇬🇧 English
 
----
+A study companion web app: daily overview, deadline calendar, Pomodoro timer and a floating music player. The frontend works on its own with `localStorage`; the optional ASP.NET Core API adds real accounts and server-side data.
 
-## 2. Key Features / Các tính năng chính
+### Features
 
-**[EN]**
-* **Authentication:** Mock user registration and login system utilizing the browser's LocalStorage for session persistence.
-* **Pomodoro Timer:** Customizable work, short break, and long break intervals with automatic session tracking.
-* **Task Management (To-do List):** Add, complete, and delete tasks. Data is preserved across sessions using LocalStorage.
-* **Time Management Tools:** Includes a real-time digital clock, a stopwatch, and a custom countdown timer.
-* **Embedded Music Player:** Ability to save favorite YouTube or Spotify links and play them directly within the application via embedded iframes.
-* **Single Page Application (SPA) Routing:** Smooth navigation between different tools without page reloads.
+- **Today**: clock, today's focus time and tasks due today
+- **Deadlines**: month/week calendar with drag & drop and filters
+- **Focus**: Pomodoro timer, stopwatch and countdown timer
+- **Music**: play YouTube/Spotify links in a floating mini player
+- **Profile**: bio-link card with a public `/@username` page
+- **Accounts and admin page** (with the backend), light/dark theme, mobile layout
 
-**[VN]**
-* **Xác thực người dùng:** Hệ thống mô phỏng đăng nhập và đăng ký sử dụng LocalStorage của trình duyệt để duy trì phiên hoạt động.
-* **Đồng hồ Pomodoro:** Cho phép tùy chỉnh thời gian làm việc, nghỉ ngắn, nghỉ dài và tự động theo dõi chu kỳ.
-* **Quản lý công việc (To-do List):** Thêm, hoàn thành và xóa công việc. Dữ liệu được lưu trữ thông qua LocalStorage.
-* **Công cụ quản lý thời gian:** Bao gồm đồng hồ kỹ thuật số thời gian thực, đồng hồ bấm giờ và đồng hồ đếm ngược tùy chỉnh.
-* **Trình phát nhạc nhúng:** Khả năng lưu các liên kết YouTube hoặc Spotify yêu thích và phát trực tiếp ngay trong ứng dụng qua iframe.
-* **Điều hướng trang đơn (SPA):** Chuyển đổi mượt mà giữa các công cụ khác nhau mà không cần tải lại trang.
+### Tech stack
 
----
+- **Frontend:** HTML, CSS, vanilla JavaScript (ES modules, no build step)
+- **Backend:** ASP.NET Core 10, EF Core + SQLite, JWT auth
+- **Docs and tests:** OpenAPI + Scalar, xUnit
 
-## 3. Technology Stack / Công nghệ sử dụng
-
-**[EN]**
-* **HTML5:** Semantic markup.
-* **CSS3:** CSS Variables (Design Tokens), Flexbox/Grid layouts, and modular stylesheets (Base, Components, Responsive).
-* **JavaScript (ES6+):** Vanilla JS leveraging ES6 Modules (`import`/`export`) for code splitting and Separation of Concerns.
-* **Icons & Typography:** Phosphor Icons and Google Fonts (Inter).
-
-**[VN]**
-* **HTML5:** Đánh dấu ngữ nghĩa.
-* **CSS3:** Biến CSS (Design Tokens), bố cục Flexbox/Grid và các tệp định dạng theo module (Cơ sở, Thành phần, Đáp ứng di động).
-* **JavaScript (ES6+):** Vanilla JS tận dụng ES6 Modules (`import`/`export`) để chia nhỏ mã nguồn và phân tách ranh giới logic (Separation of Concerns).
-* **Biểu tượng & Kiểu chữ:** Thư viện Phosphor Icons và Google Fonts (Inter).
-
----
-
-## 4. Project Structure / Cấu trúc thư mục
-
-**[EN]** The project follows a modular, feature-based structure for Clean Code maintenance:
-**[VN]** Dự án tuân theo cấu trúc module theo tính năng để bảo trì chuẩn Clean Code:
+### Project structure
 
 ```text
-/study-hub
-│
-├── index.html                 // Entry point / Điểm truy cập HTML
-├── README.md                  // Project documentation / Tài liệu dự án
-│
-├── /css                       // Modular stylesheets / Tệp định dạng CSS
-│   ├── style.css              // Global variables and layout / Biến toàn cục và bố cục
-│   ├── components.css         // Reusable UI components / Thành phần giao diện tái sử dụng
-│   └── responsive.css         // Media queries / Truy vấn đáp ứng thiết bị
-│
-└── /js                        // ES6 JavaScript Modules / Logic JavaScript
-    ├── main.js                // Main JS entry point / Tệp khởi tạo chính
-    ├── /utils                 // Helper functions / Các hàm tiện ích
-    │   ├── formatters.js      // Time formatting / Định dạng thời gian
-    │   └── storage.js         // LocalStorage wrapper / Trình xử lý LocalStorage
-    └── /modules               // Feature logic / Logic theo từng tính năng
-        ├── auth.js            // Authentication logic / Logic xác thực
-        ├── music.js           // Music player logic / Logic phát nhạc
-        ├── pomodoro.js        // Pomodoro logic / Logic Pomodoro
-        ├── stopwatch.js       // Stopwatch logic / Logic bấm giờ
-        ├── timer.js           // Timer logic / Logic đếm ngược
-        └── todo.js            // Task management logic / Logic quản lý công việc
+├── frontend/            index.html, css/, js/ (modules, utils), assets/
+├── backend/
+│   ├── StudyHub.slnx
+│   ├── src/StudyHub.Api/
+│   └── tests/StudyHub.Api.Tests/
+└── docs/                sample JS API client
+```
+
+### Run the frontend
+
+ES modules need HTTP (`file://` does not work). Either:
+
+- **VS Code Live Server:** click **Go Live** (`.vscode/settings.json` serves `frontend/`), or
+- **Python:**
+
+  ```bash
+  cd frontend
+  python -m http.server 5500
+  ```
+
+Then open <http://localhost:5500>. The API URL is set in `frontend/js/config.js`.
+
+### Run the backend
+
+Requires the [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
+
+```bash
+cd backend
+dotnet run --project src/StudyHub.Api --launch-profile http
+dotnet test
+```
+
+- App (the backend also serves the frontend): <http://localhost:5080>
+- API docs (Scalar, Development only): <http://localhost:5080/scalar>
+- The SQLite database is created automatically on first run.
+- To get an admin account, add `your-username` to `Admin:SuperAdmins` in `appsettings.json` (or user-secrets) and sign up with that name.
+
+### API overview
+
+Base path `/api`. Most endpoints need `Authorization: Bearer <accessToken>`; full details are in Scalar.
+
+| Area | Routes |
+|---|---|
+| Auth | `/api/auth/register`, `login`, `refresh`, `logout`, `me` |
+| Tasks | `/api/tasks`, `/api/tasks/calendar`, `/api/tasks/{id}` |
+| Focus | `/api/pomodoro/settings`, `/api/focus-sessions`, `/api/stats/summary` |
+| Music | `/api/music/resolve`, `/api/playlists` |
+| Profiles | `/api/profile`, `/api/profiles/{username}` (public) |
+| Admin | `/api/admin/stats`, `/api/admin/users` |
+| Import | `/api/import/local` |
+
+---
+
+<a id="tiếng-việt"></a>
+
+## 🇻🇳 Tiếng Việt
+
+Web app hỗ trợ học tập: tổng quan trong ngày, lịch deadline, đồng hồ Pomodoro và trình phát nhạc nổi. Frontend tự chạy được với `localStorage`; API ASP.NET Core (tùy chọn) thêm tài khoản thật và lưu dữ liệu trên server.
+
+### Tính năng
+
+- **Today**: đồng hồ, thời gian tập trung và task đến hạn hôm nay
+- **Deadlines**: lịch tháng/tuần, kéo thả, bộ lọc
+- **Focus**: Pomodoro, bấm giờ và đếm ngược
+- **Nhạc**: phát link YouTube/Spotify trong trình phát nổi
+- **Hồ sơ**: thẻ bio-link với trang công khai `/@username`
+- **Tài khoản và trang admin** (khi có backend), giao diện sáng/tối, bố cục điện thoại
+
+### Công nghệ
+
+- **Frontend:** HTML, CSS, JavaScript thuần (ES modules, không cần build)
+- **Backend:** ASP.NET Core 10, EF Core + SQLite, xác thực JWT
+- **Tài liệu và test:** OpenAPI + Scalar, xUnit
+
+### Cấu trúc thư mục
+
+```text
+├── frontend/            index.html, css/, js/ (modules, utils), assets/
+├── backend/
+│   ├── StudyHub.slnx
+│   ├── src/StudyHub.Api/
+│   └── tests/StudyHub.Api.Tests/
+└── docs/                client JS mẫu cho API
+```
+
+### Chạy frontend
+
+ES modules cần chạy qua HTTP (mở bằng `file://` sẽ không chạy). Chọn một cách:
+
+- **VS Code Live Server:** bấm **Go Live** (`.vscode/settings.json` đã trỏ vào `frontend/`), hoặc
+- **Python:**
+
+  ```bash
+  cd frontend
+  python -m http.server 5500
+  ```
+
+Rồi mở <http://localhost:5500>. Địa chỉ API đặt trong `frontend/js/config.js`.
+
+### Chạy backend
+
+Cần cài [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0).
+
+```bash
+cd backend
+dotnet run --project src/StudyHub.Api --launch-profile http
+dotnet test
+```
+
+- App (backend phục vụ luôn frontend): <http://localhost:5080>
+- Tài liệu API (Scalar, chỉ ở Development): <http://localhost:5080/scalar>
+- Database SQLite tự tạo ở lần chạy đầu.
+- Muốn có tài khoản admin: thêm `your-username` vào `Admin:SuperAdmins` trong `appsettings.json` (hoặc user-secrets) rồi đăng ký bằng đúng tên đó.
+
+### Tổng quan API
+
+Đường dẫn gốc `/api`. Hầu hết endpoint cần header `Authorization: Bearer <accessToken>`; chi tiết xem trong Scalar.
+
+| Nhóm | Route |
+|---|---|
+| Xác thực | `/api/auth/register`, `login`, `refresh`, `logout`, `me` |
+| Task | `/api/tasks`, `/api/tasks/calendar`, `/api/tasks/{id}` |
+| Tập trung | `/api/pomodoro/settings`, `/api/focus-sessions`, `/api/stats/summary` |
+| Nhạc | `/api/music/resolve`, `/api/playlists` |
+| Hồ sơ | `/api/profile`, `/api/profiles/{username}` (công khai) |
+| Admin | `/api/admin/stats`, `/api/admin/users` |
+| Nhập dữ liệu | `/api/import/local` |

@@ -1,0 +1,680 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f1116">
+    <title>Study Hub</title>
+
+    <!-- Apply the saved theme before first paint to avoid a flash -->
+    <script>
+        try {
+            const savedTheme = localStorage.getItem('studyhub_theme');
+            const prefersLight = window.matchMedia('(prefers-color-scheme: light)').matches;
+            document.documentElement.dataset.theme = savedTheme || (prefersLight ? 'light' : 'dark');
+        } catch (e) {
+            document.documentElement.dataset.theme = 'dark';
+        }
+    </script>
+
+    <script src="https://unpkg.com/@phosphor-icons/web@2.1.1"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/components.css">
+    <link rel="stylesheet" href="css/profile.css">
+    <link rel="stylesheet" href="css/responsive.css">
+</head>
+
+<body>
+
+    <div class="app-container">
+        <nav class="sidebar" aria-label="Main navigation">
+            <div class="sidebar-header">
+                <span class="brand-mark"><i class="ph-fill ph-student"></i></span>
+                <span class="brand-name">Study Hub</span>
+            </div>
+            <ul class="nav-menu">
+                <li class="nav-item">
+                    <a href="#home" class="nav-link active" data-view="home">
+                        <i class="ph ph-house"></i>
+                        <span>Today</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#pomodoro" class="nav-link" data-view="pomodoro">
+                        <i class="ph ph-timer"></i>
+                        <span>Focus</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#deadlines" class="nav-link" data-view="deadlines">
+                        <i class="ph ph-calendar-check"></i>
+                        <span>Deadlines</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#stopwatch" class="nav-link" data-view="stopwatch">
+                        <i class="ph ph-clock-counter-clockwise"></i>
+                        <span>Stopwatch</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#timer" class="nav-link" data-view="timer">
+                        <i class="ph ph-hourglass-medium"></i>
+                        <span>Timer</span>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#about" class="nav-link" data-view="about">
+                        <i class="ph ph-user-circle"></i>
+                        <span>About</span>
+                    </a>
+                </li>
+                <li class="nav-item" id="nav-admin" hidden>
+                    <a href="#admin" class="nav-link" data-view="admin">
+                        <i class="ph ph-shield-check"></i>
+                        <span>Admin</span>
+                    </a>
+                </li>
+            </ul>
+
+            <div class="sidebar-footer">
+                <p class="sidebar-tip"><i class="ph ph-keyboard"></i> Press <kbd>Space</kbd> to start or pause a timer.</p>
+            </div>
+        </nav>
+
+        <main class="main-content">
+            <header class="header-bar">
+                <h1 class="page-title" id="page-title">Today</h1>
+
+                <div class="music-player-bar">
+                    <i class="ph ph-music-notes music-bar-icon"></i>
+                    <input type="url" id="music-link-input" placeholder="Paste a YouTube or Spotify link..." aria-label="Music link">
+                    <button class="icon-btn icon-btn-sm" id="play-music-btn" title="Play">
+                        <i class="ph-fill ph-play"></i>
+                    </button>
+                    <button class="icon-btn icon-btn-sm" id="save-music-btn" title="Save to favorites">
+                        <i class="ph ph-heart"></i>
+                    </button>
+                    <button class="icon-btn icon-btn-sm" id="music-library-btn" title="Saved music" aria-expanded="false" aria-controls="music-library">
+                        <i class="ph ph-playlist"></i>
+                    </button>
+
+                    <div class="music-library" id="music-library" hidden>
+                        <div class="music-library-head">
+                            <h3><i class="ph ph-music-notes"></i> Saved music</h3>
+                        </div>
+                        <ul id="favorite-music-list" class="music-list"></ul>
+                    </div>
+                </div>
+
+                <div class="user-controls">
+                    <button class="icon-btn" id="theme-toggle" title="Toggle light / dark theme" aria-label="Toggle theme">
+                        <i class="ph ph-moon"></i>
+                    </button>
+                    <span class="user-greeting" id="user-greeting" hidden>Hello, User</span>
+                    <button class="btn btn-primary login-btn" id="auth-btn">
+                        <i class="ph ph-sign-in"></i>
+                        <span id="auth-btn-text">Login</span>
+                    </button>
+                </div>
+            </header>
+
+            <div class="view-scroll">
+                <!-- TODAY / DASHBOARD -->
+                <section class="app-view active" id="view-home">
+                    <div class="home-grid">
+                        <div class="card hero-card">
+                            <p class="hero-greeting" id="home-greeting">Welcome back</p>
+                            <div class="clock-time" id="clock-time">00:00:00</div>
+                            <div class="clock-date" id="clock-date">&nbsp;</div>
+                            <div class="hero-actions">
+                                <button class="btn btn-primary" data-goto="pomodoro">
+                                    <i class="ph-fill ph-play"></i> Start a focus session
+                                </button>
+                                <button class="btn btn-ghost" data-goto="timer">
+                                    <i class="ph ph-hourglass-medium"></i> Set a timer
+                                </button>
+                            </div>
+                        </div>
+
+                        <div class="stat-cards">
+                            <div class="card stat-card">
+                                <span class="stat-icon mode-work"><i class="ph-fill ph-fire"></i></span>
+                                <div>
+                                    <span class="stat-value" id="home-sessions">0</span>
+                                    <span class="stat-label">Focus sessions today</span>
+                                </div>
+                            </div>
+                            <div class="card stat-card">
+                                <span class="stat-icon mode-short"><i class="ph-fill ph-clock"></i></span>
+                                <div>
+                                    <span class="stat-value" id="home-minutes">0m</span>
+                                    <span class="stat-label">Time focused today</span>
+                                </div>
+                            </div>
+                            <div class="card stat-card">
+                                <span class="stat-icon mode-due"><i class="ph-fill ph-calendar-dot"></i></span>
+                                <div>
+                                    <span class="stat-value" id="home-due">0</span>
+                                    <span class="stat-label" id="home-due-label">Due today</span>
+                                </div>
+                            </div>
+                            <div class="card stat-card">
+                                <span class="stat-icon mode-long"><i class="ph-fill ph-check-circle"></i></span>
+                                <div>
+                                    <span class="stat-value" id="home-tasks">0/0</span>
+                                    <span class="stat-label">Tasks done</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="card home-tasks-card">
+                            <div class="card-header">
+                                <h3><i class="ph ph-list-checks"></i> Up next</h3>
+                                <button class="text-btn" data-goto="deadlines">All deadlines <i class="ph ph-arrow-right"></i></button>
+                            </div>
+                            <ul class="todo-list home-task-list" id="home-task-list"></ul>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- POMODORO -->
+                <section class="app-view" id="view-pomodoro">
+                    <div class="pomo-layout">
+                        <div class="card pomo-card pomo-timer" id="pomo-card" data-mode="work">
+                            <div class="mode-pills" id="pomo-stats" role="list">
+                                <div class="stat-item active" id="stat-work" role="listitem">
+                                    <span class="label">Focus</span>
+                                    <span class="count">0</span>
+                                </div>
+                                <div class="stat-item" id="stat-short" role="listitem">
+                                    <span class="label">Short break</span>
+                                    <span class="count">0</span>
+                                </div>
+                                <div class="stat-item" id="stat-long" role="listitem">
+                                    <span class="label">Long break</span>
+                                    <span class="count">0</span>
+                                </div>
+                            </div>
+
+                            <div class="pomo-ring">
+                                <svg viewBox="0 0 120 120" aria-hidden="true">
+                                    <circle class="ring-track" cx="60" cy="60" r="54"></circle>
+                                    <circle class="ring-progress" id="pomo-ring-progress" cx="60" cy="60" r="54"></circle>
+                                </svg>
+                                <div class="pomo-ring-center">
+                                    <div class="pomo-time-display" id="pomo-time">25:00</div>
+                                    <div class="pomo-status" id="pomo-status">Focus</div>
+                                </div>
+                            </div>
+
+                            <div class="pomo-controls">
+                                <button class="icon-btn" id="pomo-reset" title="Reset">
+                                    <i class="ph-bold ph-arrow-counter-clockwise"></i>
+                                </button>
+                                <button class="icon-btn icon-btn-lg" id="pomo-start-pause" title="Start / Pause (Space)" data-space-target="pomodoro">
+                                    <i class="ph-fill ph-play"></i>
+                                </button>
+                                <button class="icon-btn" id="pomo-skip" title="Skip to next phase">
+                                    <i class="ph-fill ph-skip-forward"></i>
+                                </button>
+                            </div>
+
+                            <p class="pomo-hint">
+                                <span>You are in the <b id="pomo-hint-mode">Focus</b> session · round <b id="pomo-round">1</b> of 4.</span>
+                                <button id="learn-pomo-btn" class="text-btn">What is Pomodoro?</button>
+                            </p>
+                        </div>
+
+                        <div class="pomo-side">
+                            <div class="card todo-card">
+                                <div class="card-header">
+                                    <h3><i class="ph ph-list-checks"></i> Tasks</h3>
+                                    <div class="card-header-actions">
+                                        <span class="badge" id="todo-count">0 left</span>
+                                        <button class="text-btn" data-goto="deadlines">Deadlines <i class="ph ph-arrow-right"></i></button>
+                                    </div>
+                                </div>
+                                <div class="todo-input-group">
+                                    <input type="text" id="todo-input" placeholder="What are you working on?" aria-label="New task">
+                                    <button class="icon-btn icon-btn-accent" id="add-todo-btn" title="Add task">
+                                        <i class="ph-bold ph-plus"></i>
+                                    </button>
+                                </div>
+                                <ul id="todo-list" class="todo-list"></ul>
+                            </div>
+
+                            <details class="card settings-card">
+                                <summary>
+                                    <h3><i class="ph ph-sliders-horizontal"></i> Customize durations</h3>
+                                    <i class="ph ph-caret-down summary-caret"></i>
+                                </summary>
+                                <div class="settings-grid">
+                                    <div class="setting-item">
+                                        <label for="pomo-time-setting">Focus</label>
+                                        <div class="input-suffix">
+                                            <input type="number" id="pomo-time-setting" value="25" min="1">
+                                            <span>min</span>
+                                        </div>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label for="short-break-setting">Short break</label>
+                                        <div class="input-suffix">
+                                            <input type="number" id="short-break-setting" value="5" min="1">
+                                            <span>min</span>
+                                        </div>
+                                    </div>
+                                    <div class="setting-item">
+                                        <label for="long-break-setting">Long break</label>
+                                        <div class="input-suffix">
+                                            <input type="number" id="long-break-setting" value="15" min="1">
+                                            <span>min</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </details>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- DEADLINES: calendar + to-do (Notion Calendar style) -->
+                <section class="app-view view-wide" id="view-deadlines">
+                    <div class="cal-toolbar">
+                        <div class="cal-toolbar-left">
+                            <h2 id="calendar-title">Month</h2>
+                            <div class="calendar-nav">
+                                <button class="btn btn-ghost btn-sm" id="calendar-today">Today</button>
+                                <button class="icon-btn icon-btn-sm" id="calendar-prev" title="Previous"><i class="ph-bold ph-caret-left"></i></button>
+                                <button class="icon-btn icon-btn-sm" id="calendar-next" title="Next"><i class="ph-bold ph-caret-right"></i></button>
+                            </div>
+                        </div>
+                        <div class="cal-toolbar-right">
+                            <div class="segmented" id="calendar-mode" role="tablist">
+                                <button class="active" data-mode="month" role="tab">Month</button>
+                                <button data-mode="week" role="tab">Week</button>
+                            </div>
+                            <button class="btn btn-primary btn-sm" id="new-task-btn"><i class="ph-bold ph-plus"></i> New task</button>
+                        </div>
+                    </div>
+
+                    <div class="deadline-layout">
+                        <div class="card calendar-card">
+                            <div class="calendar-grid month" id="calendar-grid"></div>
+                        </div>
+
+                        <aside class="card agenda-card">
+                            <div class="agenda-head">
+                                <span class="agenda-eyebrow" id="agenda-eyebrow">Today</span>
+                                <h3 id="agenda-title">Day</h3>
+                            </div>
+
+                            <form class="quick-add" id="deadline-form">
+                                <input type="text" id="deadline-text" placeholder="Add a task for this day..." aria-label="Task" required maxlength="200">
+                                <div class="quick-add-row">
+                                    <label class="field-inline" title="Time (optional)">
+                                        <i class="ph ph-clock"></i>
+                                        <input type="time" id="deadline-time" aria-label="Deadline time">
+                                    </label>
+                                    <label class="field-inline" title="Priority">
+                                        <i class="ph ph-flag"></i>
+                                        <select id="deadline-priority" aria-label="Priority">
+                                            <option value="high">High</option>
+                                            <option value="medium" selected>Medium</option>
+                                            <option value="low">Low</option>
+                                        </select>
+                                    </label>
+                                    <button type="submit" class="icon-btn icon-btn-accent" title="Add task"><i class="ph-bold ph-plus"></i></button>
+                                </div>
+                            </form>
+
+                            <div class="deadline-filters" id="deadline-filters">
+                                <button class="chip active" data-filter="day">This day <span class="chip-count">0</span></button>
+                                <button class="chip" data-filter="upcoming">Upcoming <span class="chip-count">0</span></button>
+                                <button class="chip chip-danger" data-filter="overdue">Overdue <span class="chip-count">0</span></button>
+                                <button class="chip" data-filter="nodate">No date <span class="chip-count">0</span></button>
+                                <button class="chip" data-filter="done">Done <span class="chip-count">0</span></button>
+                            </div>
+
+                            <ul class="todo-list deadline-list" id="deadline-list"></ul>
+                            <p class="agenda-tip"><i class="ph ph-hand-grabbing"></i> Drag a task onto the calendar to change its deadline. Double-click a day to add.</p>
+                        </aside>
+                    </div>
+                </section>
+
+                <!-- STOPWATCH -->
+                <section class="app-view" id="view-stopwatch">
+                    <div class="card tool-card">
+                        <span class="tool-eyebrow"><i class="ph ph-clock-counter-clockwise"></i> Stopwatch</span>
+                        <div class="timer-display" id="stopwatch-display">00:00:00</div>
+                        <p class="tool-caption">Track how long a task really takes.</p>
+                        <div class="timer-controls">
+                            <button class="icon-btn" id="stopwatch-reset" title="Reset">
+                                <i class="ph-bold ph-arrow-counter-clockwise"></i>
+                            </button>
+                            <button class="icon-btn icon-btn-lg" id="stopwatch-start-pause" title="Start / Pause (Space)" data-space-target="stopwatch">
+                                <i class="ph-fill ph-play"></i>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- COUNTDOWN TIMER -->
+                <section class="app-view" id="view-timer">
+                    <div class="card tool-card">
+                        <span class="tool-eyebrow"><i class="ph ph-hourglass-medium"></i> Countdown</span>
+                        <div class="timer-display" id="timer-display">00:10:00</div>
+                        <div class="timer-progress"><span id="timer-progress-bar"></span></div>
+
+                        <div class="timer-inputs">
+                            <label class="timer-field">
+                                <input type="number" id="timer-hours" min="0" value="0">
+                                <span>hours</span>
+                            </label>
+                            <label class="timer-field">
+                                <input type="number" id="timer-minutes" min="0" value="10">
+                                <span>minutes</span>
+                            </label>
+                            <label class="timer-field">
+                                <input type="number" id="timer-seconds" min="0" value="0">
+                                <span>seconds</span>
+                            </label>
+                        </div>
+
+                        <div class="timer-presets" id="timer-presets">
+                            <button class="chip" data-minutes="5">5 min</button>
+                            <button class="chip" data-minutes="10">10 min</button>
+                            <button class="chip" data-minutes="30">30 min</button>
+                            <button class="chip" data-minutes="45">45 min</button>
+                            <button class="chip" data-minutes="60">1 hour</button>
+                        </div>
+
+                        <div class="timer-controls">
+                            <button class="icon-btn" id="timer-reset" title="Reset">
+                                <i class="ph-bold ph-arrow-counter-clockwise"></i>
+                            </button>
+                            <button class="icon-btn icon-btn-lg" id="timer-start-pause" title="Start / Pause (Space)" data-space-target="timer">
+                                <i class="ph-fill ph-play"></i>
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- ABOUT: bio-link profile (guns.lol style) -->
+                <section class="app-view" id="view-about">
+                    <div class="profile-stage" id="profile-stage">
+                        <div class="profile-bg" id="profile-bg"></div>
+                        <div class="profile-particles" id="profile-particles" aria-hidden="true"></div>
+
+                        <div class="profile-views" title="Profile views">
+                            <i class="ph ph-eye"></i> <span id="profile-views">0</span>
+                        </div>
+                        <button class="profile-edit-btn" id="profile-edit-btn" title="Edit profile">
+                            <i class="ph ph-pencil-simple"></i> Edit
+                        </button>
+
+                        <div class="profile-card" id="profile-card">
+                            <div class="profile-avatar-wrap">
+                                <div class="profile-avatar" id="profile-avatar"></div>
+                                <span class="profile-status-dot" id="profile-status-dot" title="Status"></span>
+                            </div>
+
+                            <h2 class="profile-name" id="profile-name">Test User</h2>
+                            <div class="profile-handle">
+                                <span id="profile-handle">@testuser</span>
+                                <span class="profile-badges" id="profile-badges"></span>
+                            </div>
+
+                            <p class="profile-bio"><span id="profile-bio"></span><span class="type-caret">|</span></p>
+
+                            <div class="profile-meta">
+                                <span id="profile-location-wrap"><i class="ph ph-map-pin"></i> <span id="profile-location"></span></span>
+                                <span><i class="ph ph-timer"></i> <span id="profile-focus-total">0m</span> focused</span>
+                                <span><i class="ph ph-check-circle"></i> <span id="profile-tasks-done">0</span> tasks done</span>
+                            </div>
+
+                            <div class="presence-card" id="presence-card">
+                                <div class="presence-icon" id="presence-icon"><i class="ph-fill ph-book-open-text"></i></div>
+                                <div class="presence-text">
+                                    <span class="presence-label" id="presence-label">Status</span>
+                                    <span class="presence-title" id="presence-title">Taking a break</span>
+                                    <span class="presence-sub" id="presence-sub"></span>
+                                </div>
+                            </div>
+
+                            <div class="profile-links" id="profile-links"></div>
+                        </div>
+
+                        <button class="profile-enter" id="profile-enter">
+                            <span>click to enter...</span>
+                        </button>
+                        <a class="profile-home-link" href="./"><i class="ph-fill ph-student"></i> Made with Study Hub</a>
+                    </div>
+                </section>
+
+                <!-- ADMIN (only for admin accounts) -->
+                <section class="app-view" id="view-admin">
+                    <div class="admin-toolbar">
+                        <p class="admin-subtitle" id="admin-server-line">Server overview</p>
+                        <button class="btn btn-ghost btn-sm" id="admin-refresh"><i class="ph ph-arrow-clockwise"></i> Refresh</button>
+                    </div>
+
+                    <div class="stat-cards admin-stats" id="admin-stats"></div>
+
+                    <div class="admin-grid">
+                        <div class="card admin-users-card">
+                            <div class="card-header">
+                                <h3><i class="ph ph-users"></i> Users <span class="chip-count" id="admin-user-total">0</span></h3>
+                                <input type="search" class="admin-search" id="admin-search" placeholder="Search username, email, profile..." aria-label="Search users">
+                            </div>
+                            <div class="admin-table-wrap">
+                                <table class="admin-table">
+                                    <thead>
+                                        <tr><th>User</th><th>Role</th><th>Activity</th><th>Profile</th><th>Joined</th><th></th></tr>
+                                    </thead>
+                                    <tbody id="admin-users"></tbody>
+                                </table>
+                            </div>
+                            <div class="admin-pager">
+                                <button class="btn btn-ghost btn-sm" id="admin-prev"><i class="ph ph-caret-left"></i> Prev</button>
+                                <span id="admin-page">1 / 1</span>
+                                <button class="btn btn-ghost btn-sm" id="admin-next">Next <i class="ph ph-caret-right"></i></button>
+                            </div>
+                        </div>
+
+                        <div class="card admin-server-card">
+                            <div class="card-header"><h3><i class="ph ph-hard-drives"></i> Server</h3></div>
+                            <dl class="admin-server" id="admin-server"></dl>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Floating music player -->
+            <div class="music-player-container" id="music-player-container" aria-live="polite">
+                <div class="music-player-head">
+                    <span><i class="ph-fill ph-music-notes"></i> Now playing</span>
+                    <div>
+                        <button class="icon-btn icon-btn-xs" id="music-minimize-btn" title="Minimize">
+                            <i class="ph-bold ph-minus"></i>
+                        </button>
+                        <button class="icon-btn icon-btn-xs" id="music-close-btn" title="Stop and close">
+                            <i class="ph-bold ph-x"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="music-frame" id="music-frame"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Edit profile -->
+    <div id="profile-modal" class="modal-overlay hidden">
+        <form class="modal-content profile-form" id="profile-form">
+            <div class="task-modal-head">
+                <h4><i class="ph-fill ph-user-circle"></i> Edit profile</h4>
+                <button type="button" class="icon-btn icon-btn-sm" id="profile-close-btn" title="Close"><i class="ph-bold ph-x"></i></button>
+            </div>
+
+            <div class="profile-form-scroll">
+                <p class="form-section">Identity</p>
+                <div class="form-grid">
+                    <label class="input-group"><span>Display name</span><input type="text" id="pf-name" maxlength="40" required></label>
+                    <label class="input-group"><span>Username</span><input type="text" id="pf-handle" maxlength="30"></label>
+                    <label class="input-group span-2"><span>Avatar image URL</span><input type="url" id="pf-avatar" placeholder="https://... (leave empty for initials)"></label>
+                    <label class="input-group span-2"><span>Bio (one line per message, they type out in turn)</span><textarea id="pf-bio" rows="3" maxlength="400"></textarea></label>
+                    <label class="input-group"><span>Location</span><input type="text" id="pf-location" maxlength="40"></label>
+                    <label class="input-group"><span>Badges</span>
+                        <div class="badge-picker" id="pf-badges"></div>
+                    </label>
+                </div>
+                <p class="profile-public-link" id="pf-public-link"></p>
+
+                <p class="form-section">Look</p>
+                <div class="form-grid">
+                    <label class="input-group"><span>Background</span>
+                        <select id="pf-bg">
+                            <option value="aurora">Aurora</option>
+                            <option value="sunset">Sunset</option>
+                            <option value="ocean">Ocean</option>
+                            <option value="night">Night sky</option>
+                            <option value="custom">Custom image URL</option>
+                        </select>
+                    </label>
+                    <label class="input-group"><span>Effect</span>
+                        <select id="pf-effect">
+                            <option value="stars">Floating stars</option>
+                            <option value="snow">Snow</option>
+                            <option value="none">None</option>
+                        </select>
+                    </label>
+                    <label class="input-group span-2" id="pf-bg-url-wrap"><span>Background image URL</span><input type="url" id="pf-bg-url" placeholder="https://..."></label>
+                    <label class="input-group"><span>Accent color</span><input type="color" id="pf-accent"></label>
+                    <label class="input-group"><span>Profile song (YouTube / Spotify)</span><input type="url" id="pf-song" placeholder="Plays on click to enter"></label>
+                </div>
+
+                <p class="form-section">Links</p>
+                <div class="form-grid" id="pf-links"></div>
+            </div>
+
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost btn-danger-text" id="profile-reset-btn"><i class="ph ph-arrow-counter-clockwise"></i> Reset</button>
+                <button type="submit" class="btn btn-primary">Save profile</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Task details -->
+    <div id="task-modal" class="modal-overlay hidden">
+        <form class="modal-content task-modal" id="task-form">
+            <div class="task-modal-head">
+                <h4 id="task-modal-title"><i class="ph-fill ph-calendar-check"></i> New task</h4>
+                <button type="button" class="icon-btn icon-btn-sm" id="task-close-btn" title="Close"><i class="ph-bold ph-x"></i></button>
+            </div>
+            <input type="text" id="task-text" class="task-title-input" placeholder="Task name" required maxlength="200" aria-label="Task name">
+            <div class="task-fields">
+                <label><span><i class="ph ph-calendar-blank"></i> Date</span><input type="date" id="task-date"></label>
+                <label><span><i class="ph ph-clock"></i> Time</span><input type="time" id="task-time"></label>
+                <label><span><i class="ph ph-flag"></i> Priority</span>
+                    <select id="task-priority">
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </select>
+                </label>
+                <label class="task-done-field"><input type="checkbox" id="task-done"> <span>Completed</span></label>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost btn-danger-text" id="task-delete-btn"><i class="ph ph-trash"></i> Delete</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Pomodoro explanation -->
+    <div id="pomo-explanation" class="modal-overlay pomo-modal hidden">
+        <div class="modal-content" role="dialog" aria-labelledby="pomo-ex-title">
+            <h4 id="pomo-ex-title"><i class="ph-fill ph-timer"></i> What is Pomodoro?</h4>
+            <p>A time management method that breaks work into focused intervals, traditionally 25 minutes long,
+                separated by short breaks.</p>
+            <ul>
+                <li><span class="dot mode-work"></span><strong>Focus:</strong> 25 mins of deep work.</li>
+                <li><span class="dot mode-short"></span><strong>Short break:</strong> 5 mins to recharge.</li>
+                <li><span class="dot mode-long"></span><strong>Long break:</strong> 15 mins after 4 sessions.</li>
+            </ul>
+            <button id="close-ex-btn" class="btn btn-primary">Got it!</button>
+        </div>
+    </div>
+
+    <!-- Name a saved music link -->
+    <div id="music-name-modal" class="modal-overlay hidden">
+        <form class="modal-content" id="music-name-form">
+            <h4><i class="ph-fill ph-heart"></i> Save to favorites</h4>
+            <div class="input-group">
+                <label for="music-name-input">Name</label>
+                <input type="text" id="music-name-input" placeholder="e.g. Lofi beats" required maxlength="80">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" id="music-name-cancel">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Move local data to the account -->
+    <div id="import-modal" class="modal-overlay hidden">
+        <div class="modal-content" role="dialog" aria-labelledby="import-title">
+            <h4 id="import-title"><i class="ph-fill ph-cloud-arrow-up"></i> Move your data to your account?</h4>
+            <p>This browser has <strong id="import-summary"></strong> saved from before you logged in.
+                Upload it so it shows up on every device? Nothing is duplicated, and the copy on this device stays as a backup.</p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" id="import-skip">Not now</button>
+                <button type="button" class="btn btn-primary" id="import-confirm">Upload</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Auth -->
+    <div class="auth-modal-overlay modal-overlay" id="auth-modal">
+        <div class="auth-modal-content modal-content" role="dialog" aria-label="Login or sign up">
+            <div class="auth-header">
+                <div class="auth-tabs">
+                    <button class="auth-tab active" data-action="login">Login</button>
+                    <button class="auth-tab" data-action="register">Sign Up</button>
+                </div>
+                <button class="icon-btn icon-btn-sm" id="close-auth-btn" title="Close"><i class="ph-bold ph-x"></i></button>
+            </div>
+
+            <form id="auth-form" class="auth-form">
+                <div class="input-group">
+                    <label for="auth-username">Username</label>
+                    <input type="text" id="auth-username" required placeholder="Username or email..." autocomplete="username">
+                </div>
+                <div class="input-group register-only" style="display: none;">
+                    <label for="auth-email">Email</label>
+                    <input type="email" id="auth-email" placeholder="Enter email..." autocomplete="email">
+                </div>
+                <div class="input-group">
+                    <label for="auth-password">Password</label>
+                    <input type="password" id="auth-password" required placeholder="Enter password..." autocomplete="current-password">
+                </div>
+                <div class="input-group register-only" style="display: none;">
+                    <label for="auth-confirm-password">Confirm Password</label>
+                    <input type="password" id="auth-confirm-password" placeholder="Confirm password..." autocomplete="new-password">
+                </div>
+                <p id="auth-message" class="auth-message"></p>
+                <button type="submit" class="btn btn-primary btn-block" id="auth-submit-btn">Login</button>
+            </form>
+        </div>
+    </div>
+
+    <div class="toast-root" id="toast-root" aria-live="polite"></div>
+
+    <script type="module" src="js/main.js"></script>
+</body>
+
+</html>

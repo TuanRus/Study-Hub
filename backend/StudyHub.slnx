@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/StudyHub.Api/StudyHub.Api.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/StudyHub.Api.Tests/StudyHub.Api.Tests.csproj" />
+  </Folder>
+</Solution>

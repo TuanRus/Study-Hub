@@ -1,0 +1,67 @@
+# VI: Mở file này trong VS Code (extension REST Client) hoặc Visual Studio / Rider để gọi thử API.
+# EN: Open in VS Code (REST Client extension), Visual Studio or Rider to try the API.
+
+@base = http://localhost:5080/api
+
+### Đăng ký / Register
+# @name register
+POST {{base}}/auth/register
+Content-Type: application/json
+
+{ "username": "testuser", "email": "testuser@example.com", "password": "password123" }
+
+### Đăng nhập / Login
+# @name login
+POST {{base}}/auth/login
+Content-Type: application/json
+
+{ "usernameOrEmail": "testuser", "password": "password123" }
+
+@token = {{login.response.body.accessToken}}
+
+### Hồ sơ / Profile
+GET {{base}}/auth/me
+Authorization: Bearer {{token}}
+
+### Tạo deadline có giờ / Timed deadline block
+POST {{base}}/tasks
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "title": "Nộp bài Web", "startAt": "2026-10-24T14:00:00+07:00", "endAt": "2026-10-24T16:00:00+07:00", "color": "#ff6b6b", "priority": "High" }
+
+### Tạo sự kiện cả ngày / All-day event
+POST {{base}}/tasks
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "title": "Tuần thi", "startAt": "2026-11-09", "endAt": "2026-11-13", "isAllDay": true }
+
+### Lịch tháng / Month calendar
+GET {{base}}/tasks/calendar?from=2026-10-01&to=2026-10-31
+Authorization: Bearer {{token}}
+
+### Sắp tới hạn / Upcoming
+GET {{base}}/tasks/upcoming?days=7
+Authorization: Bearer {{token}}
+
+### Ghi một phiên Pomodoro / Log a focus session
+POST {{base}}/focus-sessions
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "kind": "Work", "startedAt": "2026-10-23T02:00:00Z", "endedAt": "2026-10-23T02:25:00Z" }
+
+### Thống kê 7 ngày / 7-day stats
+GET {{base}}/stats/summary?days=7
+Authorization: Bearer {{token}}
+
+### Đổi link nhạc thành embed / Resolve a music link
+POST {{base}}/music/resolve
+Content-Type: application/json
+
+{ "url": "https://open.spotify.com/track/4uLU6hMCjMI75M1A2tKUQC" }
+
+### Playlists
+GET {{base}}/playlists
+Authorization: Bearer {{token}}
