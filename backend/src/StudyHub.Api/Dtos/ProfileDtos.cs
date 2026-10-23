@@ -11,7 +11,7 @@ public record SaveProfileRequest(
      RegularExpression("^[a-zA-Z0-9_.]+$", ErrorMessage = "Slug may only contain letters, digits, '_' and '.'.")]
     string Slug,
     [Required, StringLength(40, MinimumLength = 1)] string DisplayName,
-    [StringLength(500)] string? AvatarUrl = null,
+    [StringLength(Entities.Profile.MaxAvatarLength)] string? AvatarUrl = null,
     [StringLength(400)] string? Bio = null,
     [StringLength(40)] string? Location = null,
     List<string>? Badges = null,

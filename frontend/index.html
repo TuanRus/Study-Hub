@@ -68,7 +68,7 @@
                         <span>Timer</span>
                     </a>
                 </li>
-                <li class="nav-item">
+                <li class="nav-item" id="nav-about" hidden>
                     <a href="#about" class="nav-link" data-view="about">
                         <i class="ph ph-user-circle"></i>
                         <span>About</span>
@@ -525,7 +525,16 @@
                 <div class="form-grid">
                     <label class="input-group"><span>Display name</span><input type="text" id="pf-name" maxlength="40" required></label>
                     <label class="input-group"><span>Username</span><input type="text" id="pf-handle" maxlength="30"></label>
-                    <label class="input-group span-2"><span>Avatar image URL</span><input type="url" id="pf-avatar" placeholder="https://... (leave empty for initials)"></label>
+                    <div class="input-group span-2"><span>Avatar</span>
+                        <div class="avatar-picker">
+                            <div class="avatar-preview" id="pf-avatar-preview" aria-hidden="true"></div>
+                            <input type="url" id="pf-avatar" placeholder="Image URL https://... or upload a photo" aria-label="Avatar image URL">
+                            <label class="btn btn-ghost btn-sm" for="pf-avatar-file"><i class="ph ph-upload-simple"></i> Upload</label>
+                            <input type="file" id="pf-avatar-file" accept="image/png,image/jpeg,image/webp,image/gif" hidden>
+                            <button type="button" class="btn btn-ghost btn-sm" id="pf-avatar-clear" title="Remove avatar"><i class="ph ph-trash"></i></button>
+                            <input type="hidden" id="pf-avatar-data">
+                        </div>
+                    </div>
                     <label class="input-group span-2"><span>Bio (one line per message, they type out in turn)</span><textarea id="pf-bio" rows="3" maxlength="400"></textarea></label>
                     <label class="input-group"><span>Location</span><input type="text" id="pf-location" maxlength="40"></label>
                     <label class="input-group"><span>Badges</span>
@@ -563,7 +572,35 @@
 
             <div class="modal-actions">
                 <button type="button" class="btn btn-ghost btn-danger-text" id="profile-reset-btn"><i class="ph ph-arrow-counter-clockwise"></i> Reset</button>
+                <button type="button" class="btn btn-ghost" id="profile-password-btn" hidden><i class="ph ph-lock-key"></i> Change password</button>
                 <button type="submit" class="btn btn-primary">Save profile</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Change password -->
+    <div id="password-modal" class="modal-overlay hidden">
+        <form class="modal-content" id="password-form">
+            <div class="task-modal-head">
+                <h4><i class="ph-fill ph-lock-key"></i> Change password</h4>
+                <button type="button" class="icon-btn icon-btn-sm" id="password-close-btn" title="Close"><i class="ph-bold ph-x"></i></button>
+            </div>
+            <div class="input-group">
+                <label for="pw-current">Current password</label>
+                <input type="password" id="pw-current" required autocomplete="current-password">
+            </div>
+            <div class="input-group">
+                <label for="pw-new">New password</label>
+                <input type="password" id="pw-new" required minlength="8" maxlength="100" autocomplete="new-password" placeholder="At least 8 characters">
+            </div>
+            <div class="input-group">
+                <label for="pw-confirm">Confirm new password</label>
+                <input type="password" id="pw-confirm" required minlength="8" maxlength="100" autocomplete="new-password">
+            </div>
+            <p class="auth-message" id="pw-message" role="alert"></p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" id="password-cancel-btn">Cancel</button>
+                <button type="submit" class="btn btn-primary">Change password</button>
             </div>
         </form>
     </div>

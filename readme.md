@@ -8,6 +8,8 @@
 
 A study companion web app: daily overview, deadline calendar, Pomodoro timer and a floating music player. The frontend works on its own with `localStorage`; the optional ASP.NET Core API adds real accounts and server-side data.
 
+**Live demo:** <https://studyhub.tuanvo13072005.top>
+
 ### Features
 
 - **Today**: clock, today's focus time and tasks due today
@@ -87,6 +89,8 @@ Base path `/api`. Most endpoints need `Authorization: Bearer <accessToken>`; ful
 ## 🇻🇳 Tiếng Việt
 
 Web app hỗ trợ học tập: tổng quan trong ngày, lịch deadline, đồng hồ Pomodoro và trình phát nhạc nổi. Frontend tự chạy được với `localStorage`; API ASP.NET Core (tùy chọn) thêm tài khoản thật và lưu dữ liệu trên server.
+
+**Bản chạy thử:** <https://studyhub.tuanvo13072005.top>
 
 ### Tính năng
 

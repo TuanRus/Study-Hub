@@ -139,6 +139,41 @@ public class ProfileTests(StudyHubFactory factory) : IClassFixture<StudyHubFacto
         Assert.Equal("https://www.linkedin.com/in/someone", visitor.Links["linkedin"]);
     }
 
+    // VI: PNG 1x1 thật, dạng base64. EN: A real 1x1 PNG in base64.
+    private const string TinyPng =
+        "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+
+    [Fact]
+    public async Task Avatar_uploaded_from_the_device_is_saved_and_shown_publicly()
+    {
+        var client = await factory.CreateUserClientAsync();
+        var slug = NewName();
+        var res = await client.PutAsJsonAsync("/api/profile", Request(slug) with { AvatarUrl = TinyPng }, TestJson.Options);
+        res.EnsureSuccessStatusCode();
+        Assert.Equal(TinyPng, (await Visit(slug, Guid.NewGuid().ToString())).AvatarUrl);
+    }
+
+    [Theory]
+    [InlineData("data:image/png;base64,PHN2ZyBvbmxvYWQ9YWxlcnQoMSk+")]   // "<svg onload=alert(1)>" labelled as PNG
+    [InlineData("data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=")]           // SVG is not allowed
+    [InlineData("data:text/html;base64,PGgxPmhpPC9oMT4=")]
+    [InlineData("javascript:alert(1)")]
+    public async Task Bad_avatar_images_are_rejected(string avatar)
+    {
+        var client = await factory.CreateUserClientAsync();
+        var res = await client.PutAsJsonAsync("/api/profile", Request(NewName()) with { AvatarUrl = avatar }, TestJson.Options);
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task Avatar_image_that_is_too_large_is_rejected()
+    {
+        var client = await factory.CreateUserClientAsync();
+        var big = TinyPng + new string('A', Profile.MaxAvatarLength);
+        var res = await client.PutAsJsonAsync("/api/profile", Request(NewName()) with { AvatarUrl = big }, TestJson.Options);
+        Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+    }
+
     [Theory]
     [InlineData("github", "javascript:alert(1)")]
     [InlineData("linkedin", "ftp://linkedin.com/in/someone")]

@@ -13,6 +13,9 @@ public class Profile
     // EN: Always stored lower-case so lookups are case-insensitive.
     public string Slug { get; set; } = string.Empty;
     public string DisplayName { get; set; } = string.Empty;
+    // VI: Link http(s) hoặc ảnh tải lên dạng data:image (xem ProfileService.AvatarUrl).
+    // EN: An http(s) link or an uploaded image as data:image (see ProfileService.AvatarUrl).
+    public const int MaxAvatarLength = 200_000;
     public string? AvatarUrl { get; set; }
     public string Bio { get; set; } = string.Empty;
     public string? Location { get; set; }

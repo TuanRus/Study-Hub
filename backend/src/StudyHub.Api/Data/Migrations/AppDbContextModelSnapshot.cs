@@ -121,7 +121,7 @@ namespace StudyHub.Api.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("AvatarUrl")
-                        .HasMaxLength(500)
+                        .HasMaxLength(200000)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Background")

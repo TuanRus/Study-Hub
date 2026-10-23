@@ -1185,6 +1185,11 @@ input:focus {
     color: var(--success);
 }
 
+/* VI: Lỗi trong hộp thoại (vd. đổi mật khẩu) vẫn màu đỏ. EN: Errors inside a dialog (e.g. change password) stay red. */
+.modal-content .auth-message {
+    color: var(--danger);
+}
+
 /* ---------- Toasts ---------- */
 .toast-root {
     position: fixed;

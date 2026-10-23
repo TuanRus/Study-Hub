@@ -2,6 +2,7 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
@@ -16,6 +17,20 @@ using StudyHub.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 var config = builder.Configuration;
+
+// VI: Nhận luôn tên biến trong .env (JWT_KEY, SUPERADMIN_USERNAME), để `docker run --env-file .env` chạy được như docker compose.
+//     Jwt__Key / Admin__SuperAdmins__0 nếu có vẫn được ưu tiên.
+// EN: Also accept the .env names (JWT_KEY, SUPERADMIN_USERNAME) so `docker run --env-file .env` works like docker compose.
+//     Jwt__Key / Admin__SuperAdmins__0 still win when set.
+var envAliases = new Dictionary<string, string?>();
+if (string.IsNullOrWhiteSpace(config["Jwt:Key"]) && !string.IsNullOrWhiteSpace(config["JWT_KEY"]))
+    envAliases["Jwt:Key"] = config["JWT_KEY"]!.Trim();
+if (!config.GetSection("Admin:SuperAdmins").GetChildren().Any(c => !string.IsNullOrWhiteSpace(c.Value))
+    && !string.IsNullOrWhiteSpace(config["SUPERADMIN_USERNAME"]))
+    envAliases["Admin:SuperAdmins:0"] = config["SUPERADMIN_USERNAME"]!.Trim();
+if (string.IsNullOrWhiteSpace(config[PublicSite.ConfigKey]) && !string.IsNullOrWhiteSpace(config[PublicSite.EnvName]))
+    envAliases[PublicSite.ConfigKey] = config[PublicSite.EnvName]!.Trim();
+if (envAliases.Count > 0) config.AddInMemoryCollection(envAliases);
 
 // ---------- Database ----------
 builder.Services.AddDbContext<AppDbContext>(o =>
@@ -89,6 +104,27 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
 builder.Services.AddHealthChecks();
 
+// ---------- Reverse proxy (Nginx Proxy Manager, Caddy...) ----------
+// VI: BEHIND_PROXY=true: tin X-Forwarded-For/Proto/Host từ proxy, để có IP thật của người dùng (rate limit, lượt xem)
+//     và đúng https://<domain>. Chỉ bật khi cổng app không mở thẳng ra Internet, vì header này giả được.
+// EN: BEHIND_PROXY=true: trust X-Forwarded-For/Proto/Host from the proxy, so we get the real client IP (rate limits, views)
+//     and the right https://<domain>. Only enable when the app port is not exposed to the Internet directly; the headers can be faked.
+// VI: ASPNETCORE_FORWARDEDHEADERS_ENABLED được ASP.NET đọc thành FORWARDEDHEADERS_ENABLED và tự thêm middleware.
+// EN: ASP.NET reads ASPNETCORE_FORWARDEDHEADERS_ENABLED as FORWARDEDHEADERS_ENABLED and adds the middleware itself.
+var builtInForwardedHeaders = config.GetValue("FORWARDEDHEADERS_ENABLED", false);
+var behindProxy = config.GetValue("BEHIND_PROXY", false) || builtInForwardedHeaders;
+if (behindProxy)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(o =>
+    {
+        o.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto | ForwardedHeaders.XForwardedHost;
+        // VI: Proxy chạy trong mạng Docker nên IP không cố định. EN: The proxy sits on a Docker network, so its IP is not fixed.
+        o.KnownIPNetworks.Clear();
+        o.KnownProxies.Clear();
+    });
+}
+var publicBaseUrl = PublicSite.Normalize(config[PublicSite.ConfigKey]);
+
 // ---------- CORS: allow the static frontend (Live Server, http.server...) ----------
 var origins = config.GetSection("Cors:Origins").Get<string[]>() ?? [];
 builder.Services.AddCors(o => o.AddDefaultPolicy(p => p.WithOrigins(origins).AllowAnyHeader().AllowAnyMethod()));
@@ -128,6 +164,9 @@ using (var scope = app.Services.CreateScope())
     if (promoted > 0) app.Logger.LogInformation("Promoted {Count} configured super admin account(s).", promoted);
     await bootstrap.CreateMissingSuperAdminsAsync(db, scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>(), app.Logger);
 }
+
+// VI: Không thêm lần nữa nếu ASP.NET đã tự thêm. EN: Do not add it twice when ASP.NET already did.
+if (behindProxy && !builtInForwardedHeaders) app.UseForwardedHeaders();
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
@@ -182,6 +221,10 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHealthChecks("/health");
+
+// VI: FE đọc publicBaseUrl để tạo link /@username; origin là địa chỉ server nhìn thấy (dùng để kiểm tra proxy).
+// EN: The FE reads publicBaseUrl to build /@username links; origin is the address the server sees (handy to check the proxy).
+app.MapGet("/api/site", (HttpContext ctx) => new SiteInfo(publicBaseUrl, $"{ctx.Request.Scheme}://{ctx.Request.Host}"));
 
 app.Run();
 

@@ -7,7 +7,7 @@
 
 import { getStorageData, setStorageData } from '../utils/storage.js';
 import { getTotalFocusMinutes } from '../utils/focusLog.js';
-import { api, isRemote, visitorId } from '../utils/api.js';
+import { api, isRemote, visitorId, publicBaseUrl } from '../utils/api.js';
 import { SERVED_BY_BACKEND } from '../config.js';
 import { showToast } from '../utils/toast.js';
 import { getTodos } from './todo.js';
@@ -111,7 +111,10 @@ function getProfile() {
     return { ...DEFAULT_PROFILE, ...(saved || {}), links: { ...(saved ? saved.links : DEFAULT_PROFILE.links) } };
 }
 
+// VI: Ưu tiên PUBLIC_BASE_URL của server (domain thật), sau đó origin hiện tại (đúng domain khi mở qua proxy).
+// EN: Prefer the server's PUBLIC_BASE_URL (the real domain), then the current origin (right domain when opened via the proxy).
 export function publicProfileUrl(slug) {
+    if (publicBaseUrl()) return `${publicBaseUrl()}/@${slug}`;
     const base = location.origin + location.pathname.replace(/\/@[^/]*$|\/index\.html$/, '/').replace(/\/?$/, '/');
     return SERVED_BY_BACKEND ? `${location.origin}/@${slug}` : `${base}?u=${encodeURIComponent(slug)}`;
 }
@@ -140,6 +143,49 @@ function safeUrl(value) {
 function cssUrl(value) {
     const url = safeUrl(value);
     return url ? `url("${url.replace(/["\\\n]/g, '')}")` : '';
+}
+
+// VI: Avatar là link http(s) hoặc ảnh tải lên từ máy (data:image PNG/JPEG/WebP, server cũng kiểm tra lại).
+// EN: An avatar is an http(s) link or a photo uploaded from the device (data:image PNG/JPEG/WebP; the server checks it too).
+const AVATAR_DATA_URL = /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+={0,2}$/;
+const AVATAR_SIZE = 256;
+const AVATAR_MAX_CHARS = 150000;
+
+function safeAvatar(value) {
+    return AVATAR_DATA_URL.test(value || '') ? value : safeUrl(value);
+}
+
+function avatarCssUrl(value) {
+    const url = safeAvatar(value);
+    return url ? `url("${url.replace(/["\\\n]/g, '')}")` : '';
+}
+
+// VI: Cắt ảnh thành hình vuông 256px ở giữa rồi nén JPEG, đủ nhỏ để lưu cùng hồ sơ.
+// EN: Crops the photo to a centred 256px square and compresses it to JPEG, small enough to store with the profile.
+async function resizeAvatar(file) {
+    const url = URL.createObjectURL(file);
+    try {
+        const img = await new Promise((resolve, reject) => {
+            const image = new Image();
+            image.onload = () => resolve(image);
+            image.onerror = () => reject(new Error('That file is not an image we can read.'));
+            image.src = url;
+        });
+        const side = Math.min(img.naturalWidth, img.naturalHeight);
+        const canvas = document.createElement('canvas');
+        canvas.width = canvas.height = AVATAR_SIZE;
+        const ctx = canvas.getContext('2d');
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, AVATAR_SIZE, AVATAR_SIZE);
+        ctx.drawImage(img, (img.naturalWidth - side) / 2, (img.naturalHeight - side) / 2, side, side, 0, 0, AVATAR_SIZE, AVATAR_SIZE);
+        for (const quality of [0.85, 0.7, 0.55, 0.4]) {
+            const data = canvas.toDataURL('image/jpeg', quality);
+            if (data.length <= AVATAR_MAX_CHARS) return data;
+        }
+        throw new Error('That photo is too detailed to use. Try another one.');
+    } finally {
+        URL.revokeObjectURL(url);
+    }
 }
 
 function el(tag, className, text) {
@@ -178,7 +224,7 @@ function renderBackground(profile) {
 function renderCard(profile) {
     const avatar = document.getElementById('profile-avatar');
     if (avatar) {
-        const img = cssUrl(profile.avatar);
+        const img = avatarCssUrl(profile.avatar);
         avatar.style.backgroundImage = img;
         avatar.textContent = img ? '' : (profile.name.trim()[0] || '?').toUpperCase();
     }
@@ -355,7 +401,10 @@ function initTilt() {
 function fillForm(profile) {
     document.getElementById('pf-name').value = profile.name;
     document.getElementById('pf-handle').value = profile.handle;
-    document.getElementById('pf-avatar').value = profile.avatar;
+    const uploaded = AVATAR_DATA_URL.test(profile.avatar || '');
+    document.getElementById('pf-avatar').value = uploaded ? '' : profile.avatar;
+    document.getElementById('pf-avatar-data').value = uploaded ? profile.avatar : '';
+    updateAvatarPreview();
     document.getElementById('pf-bio').value = profile.bio;
     document.getElementById('pf-location').value = profile.location;
     document.getElementById('pf-bg').value = profile.background;
@@ -430,6 +479,7 @@ function initEditor() {
         document.getElementById('pf-name').focus();
     });
     document.getElementById('profile-close-btn').addEventListener('click', () => modal.classList.add('hidden'));
+    initAvatarPicker();
     document.getElementById('pf-bg').addEventListener('change', (e) => {
         document.getElementById('pf-bg-url-wrap').hidden = e.target.value !== 'custom';
     });
@@ -461,7 +511,7 @@ function initEditor() {
         const profile = {
             name: document.getElementById('pf-name').value.trim() || DEFAULT_PROFILE.name,
             handle: document.getElementById('pf-handle').value.trim().replace(/^@/, '') || (remoteProfile ? remoteProfile.slug : ''),
-            avatar: safeUrl(document.getElementById('pf-avatar').value.trim()),
+            avatar: document.getElementById('pf-avatar-data').value || safeUrl(document.getElementById('pf-avatar').value.trim()),
             bio: document.getElementById('pf-bio').value,
             location: document.getElementById('pf-location').value.trim(),
             badges: [...form.querySelectorAll('.badge-option.active')].map(btn => btn.dataset.badge),
@@ -483,6 +533,45 @@ function initEditor() {
         }
         modal.classList.add('hidden');
         renderProfile();
+    });
+}
+
+function updateAvatarPreview() {
+    const preview = document.getElementById('pf-avatar-preview');
+    if (!preview) return;
+    const value = document.getElementById('pf-avatar-data').value || document.getElementById('pf-avatar').value.trim();
+    preview.style.backgroundImage = avatarCssUrl(value);
+}
+
+function initAvatarPicker() {
+    const urlInput = document.getElementById('pf-avatar');
+    const fileInput = document.getElementById('pf-avatar-file');
+    const dataInput = document.getElementById('pf-avatar-data');
+    if (!urlInput || !fileInput || !dataInput) return;
+
+    // VI: Gõ link thì bỏ ảnh đã tải lên. EN: Typing a link replaces the uploaded photo.
+    urlInput.addEventListener('input', () => {
+        dataInput.value = '';
+        updateAvatarPreview();
+    });
+    fileInput.addEventListener('change', async () => {
+        const file = fileInput.files[0];
+        fileInput.value = '';
+        if (!file) return;
+        if (!file.type.startsWith('image/')) return showToast('Please choose an image file.', 'error');
+        if (file.size > 15 * 1024 * 1024) return showToast('That photo is larger than 15 MB.', 'error');
+        try {
+            dataInput.value = await resizeAvatar(file);
+            urlInput.value = '';
+            updateAvatarPreview();
+        } catch (err) {
+            showToast(err.message, 'error', 5000);
+        }
+    });
+    document.getElementById('pf-avatar-clear').addEventListener('click', () => {
+        dataInput.value = '';
+        urlInput.value = '';
+        updateAvatarPreview();
     });
 }
 

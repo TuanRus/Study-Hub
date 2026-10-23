@@ -12,6 +12,7 @@ const HEALTH_TIMEOUT_MS = 2500;
 export const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
 let backendOnline = false;
+let sitePublicBaseUrl = '';
 let refreshing = null;
 let onSessionExpired = () => {};
 
@@ -72,12 +73,26 @@ export async function checkBackend() {
     try {
         const res = await fetch(`${BACKEND_URL}/health`, { signal: controller.signal, cache: 'no-store' });
         backendOnline = res.ok;
+        if (backendOnline) await loadSiteInfo();
     } catch (e) {
         backendOnline = false;
     } finally {
         clearTimeout(timer);
     }
     return backendOnline;
+}
+
+// VI: PUBLIC_BASE_URL của server (vd. https://studyhub.example.com), rỗng nếu chưa đặt. Lỗi thì bỏ qua.
+// EN: The server's PUBLIC_BASE_URL (e.g. https://studyhub.example.com), empty when unset. Errors are ignored.
+async function loadSiteInfo() {
+    try {
+        const res = await fetch(`${BACKEND_URL}/api/site`, { cache: 'no-store' });
+        if (res.ok) sitePublicBaseUrl = ((await res.json()).publicBaseUrl || '').replace(/\/+$/, '');
+    } catch (e) { /* ignore */ }
+}
+
+export function publicBaseUrl() {
+    return sitePublicBaseUrl;
 }
 
 // VI: Id ngẫu nhiên cố định cho trình duyệt này, để server đếm mỗi khách một lần mỗi ngày.

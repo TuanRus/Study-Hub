@@ -91,7 +91,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(p => p.Slug).HasMaxLength(32).IsRequired();
             e.HasIndex(p => p.Slug).IsUnique();
             e.Property(p => p.DisplayName).HasMaxLength(40).IsRequired();
-            e.Property(p => p.AvatarUrl).HasMaxLength(500);
+            e.Property(p => p.AvatarUrl).HasMaxLength(Profile.MaxAvatarLength);
             e.Property(p => p.Bio).HasMaxLength(400);
             e.Property(p => p.Location).HasMaxLength(40);
             e.Property(p => p.Background).HasMaxLength(20);

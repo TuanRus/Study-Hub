@@ -12,6 +12,8 @@ import { initDashboard, renderDashboard, updateGreeting } from './modules/dashbo
 import { initProfile, openProfile, initPublicProfile } from './modules/profile.js';
 import { bootSync } from './modules/sync.js';
 import { initAdmin, openAdmin, isAdmin } from './modules/admin.js';
+import { initAccount } from './modules/account.js';
+import { currentUserName } from './utils/api.js';
 
 const VIEW_TITLES = {
     home: 'Today',
@@ -59,6 +61,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initTimer();
     initDashboard();
     initProfile();
+    initAccount();
     initAdmin();
     initTheme();
 
@@ -70,9 +73,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const pageTitleEl = document.getElementById('page-title');
 
     function navigateTo(viewName, { updateHash = true } = {}) {
+        const requested = viewName;
         // [EN] The admin page needs an admin account (the server checks too)
         // [VN] Trang admin cần tài khoản admin (server cũng kiểm tra)
         if (viewName === 'admin' && !isAdmin()) viewName = 'home';
+        // [EN] About shows your own profile, so it needs a login (otherwise it shows the sample profile)
+        // [VN] About là hồ sơ của chính mình nên cần đăng nhập (không thì chỉ hiện hồ sơ mẫu)
+        if (viewName === 'about' && !currentUserName()) viewName = 'home';
         const newView = document.getElementById('view-' + viewName);
         if (!newView) return;
 
@@ -82,7 +89,7 @@ document.addEventListener('DOMContentLoaded', () => {
             view.classList.toggle('active', view === newView));
 
         if (pageTitleEl) pageTitleEl.textContent = VIEW_TITLES[viewName] || 'Study Hub';
-        if (updateHash) history.replaceState(null, '', '#' + viewName);
+        if (updateHash || viewName !== requested) history.replaceState(null, '', '#' + viewName);
 
         // [EN] Refresh data when its view is opened
         // [VN] Tải lại dữ liệu khi view tương ứng được mở
@@ -115,8 +122,17 @@ document.addEventListener('DOMContentLoaded', () => {
     if (initialView === 'admin') {
         window.addEventListener('studyhub:synced', () => { if (isAdmin()) navigateTo('admin'); }, { once: true });
     }
+    // [EN] Show the About menu item only when logged in
+    // [VN] Chỉ hiện mục About trên menu khi đã đăng nhập
+    function updateAboutNav() {
+        const nav = document.getElementById('nav-about');
+        if (nav) nav.hidden = !currentUserName();
+    }
+    updateAboutNav();
     window.addEventListener('studyhub:auth', () => {
+        updateAboutNav();
         if (document.getElementById('view-admin')?.classList.contains('active') && !isAdmin()) navigateTo('home');
+        if (document.getElementById('view-about')?.classList.contains('active') && !currentUserName()) navigateTo('home');
     });
     window.addEventListener('hashchange', () => {
         const view = location.hash.slice(1);

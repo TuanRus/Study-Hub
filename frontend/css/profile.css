@@ -547,6 +547,32 @@ EN: guns.lol-style bio-link About page: animated background, glass card, glowing
     grid-column: 1 / -1;
 }
 
+/* VI: Chọn avatar: xem trước + link + tải ảnh từ máy. EN: Avatar picker: preview + link + upload from device. */
+.avatar-picker {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+}
+
+.avatar-picker input[type="url"] {
+    flex: 1;
+    min-width: 0;
+}
+
+.avatar-preview {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--surface-2) center / cover no-repeat;
+    border: 1px solid var(--border);
+}
+
+.avatar-picker .btn-sm {
+    flex: none;
+    cursor: pointer;
+}
+
 .form-grid .input-group > span {
     display: flex;
     align-items: center;

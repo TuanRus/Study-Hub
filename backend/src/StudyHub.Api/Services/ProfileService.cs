@@ -67,7 +67,7 @@ public partial class ProfileService(AppDbContext db, IOptions<JwtOptions> jwt)
 
         profile.Slug = slug;
         profile.DisplayName = req.DisplayName.Trim();
-        profile.AvatarUrl = OptionalUrl(req.AvatarUrl, "AvatarUrl");
+        profile.AvatarUrl = AvatarUrl(req.AvatarUrl);
         profile.Bio = req.Bio?.Trim() ?? string.Empty;
         profile.Location = string.IsNullOrWhiteSpace(req.Location) ? null : req.Location.Trim();
         profile.Badges = badges;
@@ -221,6 +221,34 @@ public partial class ProfileService(AppDbContext db, IOptions<JwtOptions> jwt)
     private static string? OptionalUrl(string? value, string field) =>
         string.IsNullOrWhiteSpace(value) ? null : HttpUrl(value, field);
 
+    // VI: Avatar là link http(s), hoặc ảnh tải lên từ máy dạng data:image (PNG/JPEG/WebP, base64, tối đa ~150 KB).
+    //     Kiểm tra cả byte đầu file để chắc đó thật là ảnh.
+    // EN: An avatar is an http(s) link, or an image uploaded from the device as data:image (PNG/JPEG/WebP, base64, up to ~150 KB).
+    //     The first bytes are checked too, to make sure it really is an image.
+    internal static string? AvatarUrl(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value)) return null;
+        value = value.Trim();
+        if (!value.StartsWith("data:", StringComparison.OrdinalIgnoreCase)) return HttpUrl(value, "AvatarUrl");
+
+        var match = AvatarDataUrl().Match(value);
+        if (!match.Success || value.Length > Profile.MaxAvatarLength)
+            throw new BadRequestException("Avatar image must be a PNG, JPEG or WebP under 150 KB.");
+        byte[] bytes;
+        try { bytes = Convert.FromBase64String(match.Groups["data"].Value); }
+        catch (FormatException) { throw new BadRequestException("Avatar image is not valid base64."); }
+
+        var ok = match.Groups["type"].Value switch
+        {
+            "png" => bytes.AsSpan().StartsWith((byte[])[0x89, 0x50, 0x4E, 0x47]),
+            "jpeg" => bytes.AsSpan().StartsWith((byte[])[0xFF, 0xD8, 0xFF]),
+            "webp" => bytes.Length > 12 && bytes.AsSpan(0, 4).SequenceEqual("RIFF"u8) && bytes.AsSpan(8, 4).SequenceEqual("WEBP"u8),
+            _ => false
+        };
+        if (!ok) throw new BadRequestException("Avatar image content does not match its type.");
+        return value;
+    }
+
     // VI: Chỉ nhận http(s) để không chèn được javascript: hay data:. EN: Only http(s), so no javascript: or data: URLs.
     internal static string HttpUrl(string value, string field)
     {
@@ -234,6 +262,7 @@ public partial class ProfileService(AppDbContext db, IOptions<JwtOptions> jwt)
     private static string Truncate(string value, int max) => value.Length > max ? value[..max] : value;
 
     [GeneratedRegex("^[a-z0-9_.]{3,32}$")] private static partial Regex SlugPattern();
+    [GeneratedRegex("^data:image/(?<type>png|jpeg|webp);base64,(?<data>[A-Za-z0-9+/]+={0,2})$")] private static partial Regex AvatarDataUrl();
     [GeneratedRegex("[^a-z0-9_.]")] private static partial Regex InvalidSlugChars();
     [GeneratedRegex("^[A-Za-z0-9-]{8,64}$")] private static partial Regex VisitorIdPattern();
 }
