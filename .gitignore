@@ -1,7 +1,5 @@
 # =====================================================================
 # Study Hub – .gitignore
-# EN: Covers the static frontend in frontend/ and the .NET 10 API in backend/.
-# VN: Áp dụng cho frontend tĩnh trong frontend/ và API .NET 10 trong backend/.
 # =====================================================================
 
 # ---------------------------------------------------------------------
@@ -29,8 +27,6 @@ coverage*.xml
 
 # ---------------------------------------------------------------------
 # SQLite database (created at runtime) / Database SQLite (tự tạo khi chạy)
-# EN: studyhub.db is generated and migrated on first run – never commit it.
-# VN: studyhub.db được tạo và migrate tự động khi chạy – không đưa lên git.
 # ---------------------------------------------------------------------
 *.db
 *.db-shm
@@ -41,12 +37,6 @@ coverage*.xml
 
 # ---------------------------------------------------------------------
 # Secrets & local config / Bí mật và cấu hình máy cá nhân
-# EN: `dotnet user-secrets` stores values outside the repo, but keep any
-#     exported or local-only config out of git as well.
-#     appsettings.Development.json IS committed (it only has a dev key).
-# VN: `dotnet user-secrets` lưu ngoài repo, nhưng file cấu hình riêng
-#     hoặc xuất ra cũng không được commit.
-#     appsettings.Development.json VẪN được commit (chỉ chứa khóa dev).
 # ---------------------------------------------------------------------
 secrets.json
 appsettings.*.local.json
@@ -54,7 +44,6 @@ appsettings.Local.json
 appsettings.Production.json
 .env
 .env.*
-# (.env.example is listed under Docker files below)
 *.pfx
 *.pem
 *.key
@@ -127,15 +116,11 @@ $RECYCLE.BIN/
 
 # ---------------------------------------------------------------------
 # Personal deploy notes / Ghi chú deploy cá nhân
-# EN: The ZimaOS guide stays on this machine only, not on GitHub.
-# VN: Hướng dẫn deploy ZimaOS chỉ giữ trên máy, không đẩy lên GitHub.
 # ---------------------------------------------------------------------
 docs/DEPLOY-ZIMAOS.md
 
 # ---------------------------------------------------------------------
 # Docker deployment files / File deploy bằng Docker
-# EN: Docker/ZimaOS deploy files stay on this machine only, not on GitHub.
-# VN: Các file deploy Docker/ZimaOS chỉ giữ trên máy, không đẩy lên GitHub.
 # ---------------------------------------------------------------------
 Dockerfile
 docker-compose.yml
