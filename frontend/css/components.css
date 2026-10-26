@@ -1102,34 +1102,56 @@ input:focus {
     background: var(--accent-soft);
 }
 
-/* ---------- Floating music player ---------- */
+/* ---------- Music island (Dynamic Island-style "now playing") ---------- */
+/* VI: Luôn nền đen như Dynamic Island của iPhone, ở cả giao diện sáng và tối.
+   EN: Always black like the iPhone Dynamic Island, in both light and dark themes. */
 .music-player-container {
+    --island-bg: #050507;
+    --island-text: #f5f5f7;
+    --island-muted: rgba(245, 245, 247, 0.6);
     position: fixed;
-    right: var(--space-6);
-    bottom: var(--space-6);
-    width: 360px;
-    border-radius: var(--radius-lg);
-    border: 1px solid var(--border);
-    background: var(--surface);
-    box-shadow: var(--shadow-lg);
+    top: calc(var(--header-height) + 10px);
+    left: 50%;
+    transform: translateX(-50%);
+    width: 260px;
+    max-width: calc(100vw - 32px);
+    border-radius: 999px;
+    background: var(--island-bg);
+    color: var(--island-text);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
     overflow: hidden;
-    z-index: 50;
+    z-index: 60;
     display: none;
+    transition: width 320ms cubic-bezier(0.2, 0.9, 0.3, 1.15), border-radius 320ms ease;
 }
 
 .music-player-container.active {
     display: block;
-    animation: view-in 220ms ease;
+    animation: island-in 360ms cubic-bezier(0.2, 0.9, 0.3, 1.2);
+}
+
+@keyframes island-in {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) scale(0.6);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) scale(1);
+    }
+}
+
+.music-player-container.expanded {
+    width: 360px;
+    border-radius: 28px;
 }
 
 .music-player-head {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    padding: 6px 6px 6px 14px;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: var(--text-muted);
+    gap: 4px;
+    padding: 5px 6px 5px 5px;
 }
 
 .music-now {
@@ -1137,15 +1159,41 @@ input:focus {
     min-width: 0;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: 10px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
 }
 
-.music-now > i {
-    color: var(--accent);
+.music-art {
     flex-shrink: 0;
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 40%, #ff5fa2));
+    color: #fff;
+    font-size: 15px;
+    transition: width 320ms ease, height 320ms ease, border-radius 320ms ease;
+}
+
+.is-youtube .music-art { background: #ff3b3b; }
+.is-spotify .music-art { background: #1db954; }
+
+.expanded .music-art {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    font-size: 22px;
 }
 
 .music-now-text {
+    flex: 1;
     min-width: 0;
     display: flex;
     flex-direction: column;
@@ -1160,28 +1208,92 @@ input:focus {
 }
 
 .music-now-text strong {
-    color: var(--text);
+    font-size: 13px;
     font-weight: 600;
 }
 
 .music-now-text small {
     font-size: 11.5px;
     font-weight: 500;
-    color: var(--text-faint);
+    color: var(--island-muted);
+}
+
+/* VI: Thu gọn chỉ hiện tên bài. EN: Collapsed shows only the song name. */
+.music-player-container:not(.expanded) .music-now-text small {
+    display: none;
+}
+
+.expanded .music-now-text strong {
+    font-size: 15px;
+}
+
+/* VI: Cột sóng nhạc nhảy khi đang phát. EN: Equalizer bars that bounce while playing. */
+.music-eq {
+    flex-shrink: 0;
+    display: flex;
+    align-items: flex-end;
+    gap: 2px;
+    height: 14px;
+    margin-right: 2px;
+}
+
+.music-eq i {
+    width: 3px;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--accent);
+}
+
+.is-playing .music-eq i {
+    animation: eq-bounce 900ms ease-in-out infinite;
+}
+
+.is-playing .music-eq i:nth-child(2) { animation-delay: -300ms; }
+.is-playing .music-eq i:nth-child(3) { animation-delay: -600ms; }
+
+@keyframes eq-bounce {
+    0%, 100% { height: 4px; }
+    50% { height: 14px; }
+}
+
+.music-player-container .icon-btn {
+    color: var(--island-text);
+}
+
+.music-player-container .icon-btn:hover {
+    background: rgba(255, 255, 255, 0.12);
+    color: #fff;
+}
+
+.music-toggle {
+    flex-shrink: 0;
+    border-radius: 50%;
 }
 
 .music-player-controls {
-    display: flex;
-    flex-shrink: 0;
+    display: none;
     align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 2px 10px 10px;
 }
 
-#music-repeat-btn[aria-pressed="true"] {
+.expanded .music-player-controls {
+    display: flex;
+}
+
+#music-repeat-btn[aria-pressed="true"],
+#music-video-btn[aria-pressed="true"] {
     color: var(--accent);
 }
 
+/* VI: Khung phát luôn còn trong trang (để nhạc chạy) nhưng chỉ hiện khi mở rộng: video YouTube khi bật "Show video",
+   hoặc thanh Spotify.
+   EN: The embed always stays mounted (so audio plays) but only shows when expanded: YouTube video with "Show video" on,
+   or the Spotify bar. */
 .music-frame {
-    height: 203px;
+    height: 0;
+    overflow: hidden;
 }
 
 .music-frame iframe {
@@ -1191,18 +1303,23 @@ input:focus {
     border: none;
 }
 
-/* VI: Thu nhỏ nhưng vẫn giữ iframe để nhạc tiếp tục phát. EN: Minimized but iframe stays mounted so audio keeps playing. */
-.music-player-container.minimized {
-    width: auto;
-    max-width: 360px;
-}
-
 .music-frame > div {
     height: 100%;
 }
 
-.music-player-container.minimized .music-frame {
-    height: 0;
+.expanded.is-youtube.show-video .music-frame {
+    height: 203px;
+}
+
+.expanded.is-spotify .music-frame {
+    height: 80px;
+    margin: 0 10px 10px;
+    border-radius: 12px;
+}
+
+/* VI: Trang bio công khai không có header nên đảo nằm sát mép trên. EN: The public bio page has no header, so the island sits at the top edge. */
+body.public-mode .music-player-container {
+    top: 12px;
 }
 
 /* ---------- Modals ---------- */

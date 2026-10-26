@@ -214,7 +214,73 @@ function rememberPlaylist(id) {
 }
 
 // ---------- Player: a queue played in order ----------
-const player = { tracks: [], index: 0, name: '', playlistId: null, repeat: false, mountId: 0 };
+// VI: Trình phát là một "đảo" kiểu Dynamic Island: thu gọn chỉ hiện tên bài + play/pause, bấm vào để mở rộng.
+//     Video YouTube chỉ hiện khi mở rộng và bật "Show video"; Spotify chỉ hiện khung khi mở rộng.
+// EN: The player is a Dynamic Island-style "island": collapsed it shows the song name + play/pause, tap to expand.
+//     YouTube video only shows when expanded with "Show video" on; Spotify's frame only shows when expanded.
+const SHOW_VIDEO_KEY = 'studyhub_music_audio_only';
+// VI: control = { toggle } của nguồn đang phát (YouTube, Spotify); null khi chưa điều khiển được.
+// EN: control = { toggle } of the current source (YouTube, Spotify); null while it can't be controlled yet.
+const player = { tracks: [], index: 0, name: '', playlistId: null, repeat: false, mountId: 0,
+    showVideo: loadShowVideo(), forceVideo: false, control: null, playing: false, title: '' };
+
+// VI: Mặc định chỉ nghe nhạc (ẩn video). EN: Audio only (video hidden) by default.
+function loadShowVideo() {
+    try { return localStorage.getItem(SHOW_VIDEO_KEY) === '0'; } catch (e) { return false; }
+}
+
+function setShowVideo(on) {
+    player.showVideo = on;
+    try { localStorage.setItem(SHOW_VIDEO_KEY, on ? '0' : '1'); } catch (e) { /* ignore */ }
+    syncIsland();
+}
+
+function setExpanded(on) {
+    const container = document.getElementById('music-player-container');
+    if (!container) return;
+    container.classList.toggle('expanded', on);
+    const btn = document.getElementById('music-island-btn');
+    btn?.setAttribute('aria-expanded', String(on));
+    if (btn) btn.title = on ? 'Collapse player' : 'Show player';
+}
+
+function setPlaying(on) {
+    player.playing = on;
+    syncIsland();
+}
+
+const SOURCE_ICONS = { youtube: 'ph-youtube-logo', spotify: 'ph-spotify-logo' };
+
+function syncIsland() {
+    const container = document.getElementById('music-player-container');
+    const track = player.tracks[player.index];
+    const type = track ? getMusicType(track.url) : '';
+    for (const t of ['youtube', 'spotify']) container?.classList.toggle(`is-${t}`, type === t);
+    container?.classList.toggle('show-video', player.showVideo || player.forceVideo);
+    container?.classList.toggle('is-playing', player.playing);
+
+    const art = document.getElementById('music-art');
+    if (art) art.innerHTML = `<i class="ph-fill ${SOURCE_ICONS[type] || 'ph-music-notes'}"></i>`;
+
+    const videoBtn = document.getElementById('music-video-btn');
+    if (videoBtn) {
+        const label = player.showVideo ? 'Hide video (audio only)' : 'Show video';
+        videoBtn.hidden = type !== 'youtube';
+        videoBtn.title = label;
+        videoBtn.setAttribute('aria-label', label);
+        videoBtn.setAttribute('aria-pressed', String(player.showVideo));
+        videoBtn.innerHTML = `<i class="ph-bold ${player.showVideo ? 'ph-video-camera-slash' : 'ph-video-camera'}"></i>`;
+    }
+
+    const toggleBtn = document.getElementById('music-toggle-btn');
+    if (toggleBtn) {
+        const label = player.playing ? 'Pause' : 'Play';
+        toggleBtn.hidden = !player.control;
+        toggleBtn.title = label;
+        toggleBtn.setAttribute('aria-label', label);
+        toggleBtn.innerHTML = `<i class="ph-fill ${player.playing ? 'ph-pause' : 'ph-play'}"></i>`;
+    }
+}
 
 let youTubeApi = null;
 function loadYouTubeApi() {
@@ -254,10 +320,10 @@ function plainIframe(src) {
     return iframe;
 }
 
-// VI: Gắn bài vào khung phát. Có hàng đợi thì nghe sự kiện "hết bài" của YouTube/Spotify để tự chuyển bài.
-//     API không tải được (bị chặn) thì vẫn phát bình thường, chỉ không tự chuyển bài.
-// EN: Mounts a track in the player. With a queue, listens for YouTube/Spotify "ended" events to move on by itself.
-//     If the API can't load (blocked), the track still plays; it just won't auto-advance.
+// VI: Gắn bài vào khung phát và nối nút play/pause của đảo với nguồn đó. Có hàng đợi thì nghe sự kiện "hết bài" để tự chuyển.
+//     API YouTube/Spotify không tải được (bị chặn) thì mở rộng đảo để dùng nút của chính trình phát.
+// EN: Mounts a track and wires the island's play/pause to that source. With a queue, listens for "ended" to move on.
+//     If the YouTube/Spotify API can't load (blocked), the island expands so the embed's own buttons can be used.
 function mountTrack(track) {
     const frame = document.getElementById('music-frame');
     const embedUrl = getEmbedUrl(track.url);
@@ -270,18 +336,49 @@ function mountTrack(track) {
         ended = true;
         playNext({ auto: true });
     };
+    player.control = null;
+    player.playing = false;
+    player.title = '';
+    player.forceVideo = false;
 
+    // VI: YouTube luôn dùng API (kể cả bài lẻ) để play/pause được khi video bị ẩn.
+    // EN: YouTube always uses the API (even for a single song) so play/pause works while the video is hidden.
     if (embedUrl.includes('youtube.com')) {
         const iframe = plainIframe(embedUrl);
         frame.replaceChildren(iframe);
-        if (!autoAdvance) return;
         const isSeries = embedUrl.includes('videoseries');
         loadYouTubeApi().then((YT) => {
             if (!isCurrent()) return;
             const yt = new YT.Player(iframe, {
                 events: {
+                    onReady: () => {
+                        if (!isCurrent()) return;
+                        player.control = { toggle: () => (player.playing ? yt.pauseVideo() : yt.playVideo()) };
+                        syncIsland();
+                    },
+                    // VI: Video lỗi (bị xóa, chặn nhúng...) thì mở rộng và hiện video để thấy thông báo của YouTube.
+                    // EN: Video error (removed, embedding blocked...): expand and show the video so YouTube's message is visible.
+                    onError: () => {
+                        if (!isCurrent()) return;
+                        player.forceVideo = true;
+                        syncIsland();
+                        setExpanded(true);
+                        showToast("This YouTube video can't be played here.", 'error');
+                    },
                     onStateChange: (e) => {
-                        if (e.data !== YT.PlayerState.ENDED) return;
+                        if (!isCurrent()) return;
+                        // VI: Link lẻ (ô dán link, nhạc hồ sơ) không có tên, nên lấy tên video. EN: Single links have no name, so use the video title.
+                        const videoTitle = yt.getVideoData?.()?.title;
+                        if (videoTitle && !track.name && player.title !== videoTitle) {
+                            player.title = videoTitle;
+                            renderPlayerHead();
+                        }
+                        if (e.data !== YT.PlayerState.ENDED) {
+                            setPlaying(e.data === YT.PlayerState.PLAYING || e.data === YT.PlayerState.BUFFERING);
+                            return;
+                        }
+                        setPlaying(false);
+                        if (!autoAdvance) return;
                         // VI: Playlist YouTube: chỉ chuyển khi hết video cuối. EN: YouTube playlist: only move on after its last video.
                         if (isSeries) {
                             const list = yt.getPlaylist?.() || [];
@@ -291,15 +388,23 @@ function mountTrack(track) {
                     },
                 },
             });
-        }).catch(() => {});
+        }).catch(() => {
+            if (!isCurrent()) return;
+            player.forceVideo = true;
+            syncIsland();
+            setExpanded(true);
+        });
         return;
     }
 
-    // VI: Spotify: chỉ bài hát / tập podcast mới biết lúc kết thúc; album, playlist Spotify tự phát tiếp nên bấm Next để qua.
-    // EN: Spotify: only a track/episode has a clear end; albums and Spotify playlists keep playing, so press Next to move on.
-    const spotify = embedUrl.match(/open\.spotify\.com\/embed\/(track|episode)\/([A-Za-z0-9]{22})/);
-    if (!spotify || !autoAdvance) {
+    // VI: Spotify: dùng iFrame API để play/pause từ đảo. Chỉ bài hát / tập podcast mới biết lúc kết thúc;
+    //     album, playlist Spotify tự phát tiếp nên bấm Next để qua.
+    // EN: Spotify: the iFrame API lets the island play/pause. Only a track/episode has a clear end;
+    //     albums and Spotify playlists keep playing, so press Next to move on.
+    const spotify = embedUrl.match(/open\.spotify\.com\/embed\/([a-z]+)\/([A-Za-z0-9]{22})/);
+    if (!spotify) {
         frame.replaceChildren(plainIframe(embedUrl));
+        setExpanded(true);
         return;
     }
     const holder = document.createElement('div');
@@ -307,17 +412,27 @@ function mountTrack(track) {
     loadSpotifyApi().then((IFrameAPI) => {
         if (!isCurrent()) return;
         IFrameAPI.createController(holder, { uri: `spotify:${spotify[1]}:${spotify[2]}`, width: '100%', height: '100%' }, (controller) => {
+            const hasEnd = spotify[1] === 'track' || spotify[1] === 'episode';
             let furthest = 0;
-            controller.addListener('ready', () => controller.play());
+            controller.addListener('ready', () => {
+                if (!isCurrent()) return;
+                player.control = { toggle: () => controller.togglePlay() };
+                syncIsland();
+                controller.play();
+            });
             controller.addListener('playback_update', (e) => {
+                if (!isCurrent()) return;
                 const { isPaused, position, duration } = e.data || {};
-                if (!duration) return;
+                if (player.playing === !!isPaused) setPlaying(!isPaused);
+                if (!duration || !hasEnd || !autoAdvance) return;
                 furthest = Math.max(furthest, position);
                 if (position >= duration - 300 || (isPaused && furthest >= duration - 2000)) onEnded();
             });
         });
     }).catch(() => {
-        if (isCurrent()) frame.replaceChildren(plainIframe(embedUrl));
+        if (!isCurrent()) return;
+        frame.replaceChildren(plainIframe(embedUrl));
+        setExpanded(true);
     });
 }
 
@@ -326,7 +441,7 @@ function renderPlayerHead() {
     const many = player.tracks.length > 1;
     const title = document.getElementById('music-now-title');
     const sub = document.getElementById('music-now-sub');
-    if (title) title.textContent = track?.name || 'Now playing';
+    if (title) title.textContent = track?.name || player.title || 'Now playing';
     if (sub) {
         sub.textContent = many ? `${player.name || 'Queue'} · ${player.index + 1}/${player.tracks.length}` : '';
         sub.hidden = !many;
@@ -337,6 +452,7 @@ function renderPlayerHead() {
     }
     const repeat = document.getElementById('music-repeat-btn');
     if (repeat) repeat.setAttribute('aria-pressed', String(player.repeat));
+    syncIsland();
 }
 
 function playAt(index) {
@@ -374,8 +490,7 @@ export function playQueue(tracks, startIndex = 0, name = '', playlistId = null) 
     player.tracks = playable;
     player.name = name;
     player.playlistId = playlistId;
-    document.getElementById('music-player-container')?.classList.remove('minimized');
-    syncMinimizeButton();
+    setExpanded(false);
     playAt(Math.min(Math.max(startIndex, 0), playable.length - 1));
 }
 
@@ -389,13 +504,14 @@ export function playMusic(link) {
     playQueue([{ id: 'single', name: '', url: link }]);
 }
 
-function syncMinimizeButton() {
-    const container = document.getElementById('music-player-container');
-    const btn = document.getElementById('music-minimize-btn');
-    if (!container || !btn) return;
-    const isMinimized = container.classList.contains('minimized');
-    btn.innerHTML = `<i class="ph-bold ${isMinimized ? 'ph-arrows-out-simple' : 'ph-minus'}"></i>`;
-    btn.title = isMinimized ? 'Expand' : 'Minimize';
+function stopPlayer() {
+    player.mountId++;
+    player.tracks = [];
+    player.control = null;
+    player.playing = false;
+    document.getElementById('music-frame')?.replaceChildren();
+    document.getElementById('music-player-container')?.classList.remove('active', 'is-playing');
+    setExpanded(false);
 }
 
 // ---------- Library popover ----------
@@ -526,7 +642,7 @@ function renderTracks(body, playlist) {
         li.classList.toggle('is-playing', player.playlistId === playlist.id && player.tracks[player.index]?.id === music.id);
         li.innerHTML = `
             <div class="music-item-info">
-                <i class="ph-fill ${music.type === 'youtube' ? 'ph-youtube-logo' : 'ph-spotify-logo'}"></i>
+                <i class="ph-fill ${SOURCE_ICONS[music.type] || 'ph-music-notes'}"></i>
                 <div>
                     <span></span>
                     <a target="_blank" rel="noopener"></a>
@@ -681,7 +797,7 @@ export async function openSharedPlaylist(code) {
         const info = el('div', 'music-item-info');
         const text = el('div');
         text.append(el('span', '', music.name));
-        info.append(el('i', `ph-fill ${music.type === 'youtube' ? 'ph-youtube-logo' : 'ph-spotify-logo'}`), text);
+        info.append(el('i', `ph-fill ${SOURCE_ICONS[music.type] || 'ph-music-notes'}`), text);
         const play = iconButton('ph-fill ph-play', 'Play from here', 'play-music-item-btn');
         play.addEventListener('click', () => {
             playQueue(tracks, index, sharedPlaylist.name);
@@ -720,8 +836,7 @@ export function initMusic() {
     const saveMusicBtn = document.getElementById('save-music-btn');
     const playMusicBtn = document.getElementById('play-music-btn');
     const container = document.getElementById('music-player-container');
-    const frame = document.getElementById('music-frame');
-    const minimizeBtn = document.getElementById('music-minimize-btn');
+    const islandBtn = document.getElementById('music-island-btn');
     const closeBtn = document.getElementById('music-close-btn');
     const saveModal = document.getElementById('music-name-modal');
     const saveForm = document.getElementById('music-name-form');
@@ -798,20 +913,16 @@ export function initMusic() {
         });
     }
 
-    // VI: Thu nhỏ giữ nguyên iframe để nhạc vẫn phát; đóng thì gỡ iframe để dừng hẳn.
-    // EN: Minimize keeps the iframe so audio continues; close removes it to stop playback.
-    minimizeBtn?.addEventListener('click', () => {
-        container.classList.toggle('minimized');
-        syncMinimizeButton();
+    // VI: Bấm đảo để mở rộng/thu gọn; thu gọn vẫn giữ iframe nên nhạc vẫn phát. Đóng thì gỡ iframe để dừng hẳn.
+    // EN: Tap the island to expand/collapse; collapsed keeps the iframe so audio continues. Close removes it to stop playback.
+    islandBtn?.addEventListener('click', () => setExpanded(!container.classList.contains('expanded')));
+    document.addEventListener('click', (e) => {
+        if (container.classList.contains('expanded') && e.target.isConnected && !container.contains(e.target)) setExpanded(false);
     });
+    closeBtn?.addEventListener('click', stopPlayer);
 
-    closeBtn?.addEventListener('click', () => {
-        player.mountId++;
-        player.tracks = [];
-        frame.replaceChildren();
-        container.classList.remove('active', 'minimized');
-        syncMinimizeButton();
-    });
+    document.getElementById('music-video-btn')?.addEventListener('click', () => setShowVideo(!player.showVideo));
+    document.getElementById('music-toggle-btn')?.addEventListener('click', () => player.control?.toggle());
 
     document.getElementById('music-prev-btn')?.addEventListener('click', playPrev);
     document.getElementById('music-next-btn')?.addEventListener('click', () => playNext());

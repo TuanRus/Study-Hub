@@ -549,33 +549,37 @@
                 </section>
             </div>
 
-            <!-- Floating music player -->
+            <!-- Music island: a "now playing" pill like the iPhone Dynamic Island; tap it to expand -->
             <div class="music-player-container" id="music-player-container" aria-live="polite">
                 <div class="music-player-head">
-                    <div class="music-now">
-                        <i class="ph-fill ph-music-notes"></i>
-                        <div class="music-now-text">
+                    <button type="button" class="music-now" id="music-island-btn" aria-expanded="false" title="Show player">
+                        <span class="music-art" id="music-art"><i class="ph-fill ph-music-notes"></i></span>
+                        <span class="music-now-text">
                             <strong id="music-now-title">Now playing</strong>
                             <small id="music-now-sub" hidden></small>
-                        </div>
-                    </div>
-                    <div class="music-player-controls">
-                        <button class="icon-btn icon-btn-xs" id="music-prev-btn" title="Previous" aria-label="Previous" hidden>
-                            <i class="ph-fill ph-skip-back"></i>
-                        </button>
-                        <button class="icon-btn icon-btn-xs" id="music-next-btn" title="Next" aria-label="Next" hidden>
-                            <i class="ph-fill ph-skip-forward"></i>
-                        </button>
-                        <button class="icon-btn icon-btn-xs" id="music-repeat-btn" title="Repeat playlist" aria-label="Repeat playlist" aria-pressed="false" hidden>
-                            <i class="ph-bold ph-repeat"></i>
-                        </button>
-                        <button class="icon-btn icon-btn-xs" id="music-minimize-btn" title="Minimize">
-                            <i class="ph-bold ph-minus"></i>
-                        </button>
-                        <button class="icon-btn icon-btn-xs" id="music-close-btn" title="Stop and close">
-                            <i class="ph-bold ph-x"></i>
-                        </button>
-                    </div>
+                        </span>
+                        <span class="music-eq" aria-hidden="true"><i></i><i></i><i></i></span>
+                    </button>
+                    <button class="icon-btn icon-btn-xs music-toggle" id="music-toggle-btn" title="Pause" aria-label="Pause" hidden>
+                        <i class="ph-fill ph-pause"></i>
+                    </button>
+                </div>
+                <div class="music-player-controls">
+                    <button class="icon-btn icon-btn-xs" id="music-prev-btn" title="Previous" aria-label="Previous" hidden>
+                        <i class="ph-fill ph-skip-back"></i>
+                    </button>
+                    <button class="icon-btn icon-btn-xs" id="music-next-btn" title="Next" aria-label="Next" hidden>
+                        <i class="ph-fill ph-skip-forward"></i>
+                    </button>
+                    <button class="icon-btn icon-btn-xs" id="music-repeat-btn" title="Repeat playlist" aria-label="Repeat playlist" aria-pressed="false" hidden>
+                        <i class="ph-bold ph-repeat"></i>
+                    </button>
+                    <button class="icon-btn icon-btn-xs" id="music-video-btn" title="Show video" aria-label="Show video" aria-pressed="false" hidden>
+                        <i class="ph-bold ph-video-camera"></i>
+                    </button>
+                    <button class="icon-btn icon-btn-xs" id="music-close-btn" title="Stop and close" aria-label="Stop and close">
+                        <i class="ph-bold ph-x"></i>
+                    </button>
                 </div>
                 <div class="music-frame" id="music-frame"></div>
             </div>
