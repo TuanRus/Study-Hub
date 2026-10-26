@@ -16,7 +16,7 @@ public partial class PasswordResetTests(StudyHubFactory factory) : IClassFixture
     {
         var name = NewName();
         var email = $"{name}@example.com";
-        var res = await factory.CreateClient().PostAsJsonAsync("/api/auth/register", new RegisterRequest(name, email, "password123"));
+        var res = await factory.CreateClient().PostAsJsonAsync("/api/auth/register", new RegisterRequest(name, email, "Password123!"));
         res.EnsureSuccessStatusCode();
         return (name, email, (await res.Content.ReadFromJsonAsync<AuthResponse>(TestJson.Options))!);
     }
@@ -34,18 +34,18 @@ public partial class PasswordResetTests(StudyHubFactory factory) : IClassFixture
         var code = LastCode(email);
         Assert.Equal(6, code.Length);
 
-        var reset = await client.PostAsJsonAsync("/api/auth/reset-password", new ResetPasswordRequest(email, code, "brand-new-pass"));
+        var reset = await client.PostAsJsonAsync("/api/auth/reset-password", new ResetPasswordRequest(email, code, "Brand-new-pass1"));
         Assert.Equal(HttpStatusCode.NoContent, reset.StatusCode);
 
         Assert.Equal(HttpStatusCode.Unauthorized,
-            (await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(name, "password123"))).StatusCode);
+            (await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(name, "Password123!"))).StatusCode);
         Assert.Equal(HttpStatusCode.OK,
-            (await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(name, "brand-new-pass"))).StatusCode);
+            (await client.PostAsJsonAsync("/api/auth/login", new LoginRequest(name, "Brand-new-pass1"))).StatusCode);
         Assert.Equal(HttpStatusCode.Unauthorized,
             (await client.PostAsJsonAsync("/api/auth/refresh", new RefreshRequest(auth.RefreshToken))).StatusCode);
 
         // VI: Mã chỉ dùng được một lần. EN: A code works only once.
-        var again = await client.PostAsJsonAsync("/api/auth/reset-password", new ResetPasswordRequest(email, code, "another-pass-1"));
+        var again = await client.PostAsJsonAsync("/api/auth/reset-password", new ResetPasswordRequest(email, code, "Another-pass-1"));
         Assert.Equal(HttpStatusCode.BadRequest, again.StatusCode);
     }
 
@@ -70,10 +70,10 @@ public partial class PasswordResetTests(StudyHubFactory factory) : IClassFixture
 
         for (var i = 0; i < 5; i++)
             Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/reset-password",
-                new ResetPasswordRequest(email, wrong, "brand-new-pass"))).StatusCode);
+                new ResetPasswordRequest(email, wrong, "Brand-new-pass1"))).StatusCode);
         // VI: Sai 5 lần thì cả mã đúng cũng bị khoá. EN: After 5 wrong tries even the right code is refused.
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/reset-password",
-            new ResetPasswordRequest(email, code, "brand-new-pass"))).StatusCode);
+            new ResetPasswordRequest(email, code, "Brand-new-pass1"))).StatusCode);
 
         var (_, email2, _) = await RegisterAsync();
         await client.PostAsJsonAsync("/api/auth/forgot-password", new ForgotPasswordRequest(email2));
@@ -86,7 +86,7 @@ public partial class PasswordResetTests(StudyHubFactory factory) : IClassFixture
             await db.SaveChangesAsync();
         }
         Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/api/auth/reset-password",
-            new ResetPasswordRequest(email2, code2, "brand-new-pass"))).StatusCode);
+            new ResetPasswordRequest(email2, code2, "Brand-new-pass1"))).StatusCode);
     }
 
     [Fact]

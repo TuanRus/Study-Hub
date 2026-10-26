@@ -158,11 +158,11 @@ public class AdminTests(StudyHubFactory factory) : IClassFixture<StudyHubFactory
         Assert.True((await res.Content.ReadFromJsonAsync<AdminUserDto>(TestJson.Options))!.IsDisabled);
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.GetAsync("/api/tasks")).StatusCode);
 
-        var login = await factory.CreateClient().PostAsJsonAsync("/api/auth/login", new LoginRequest(user.Username, "password123"));
+        var login = await factory.CreateClient().PostAsJsonAsync("/api/auth/login", new LoginRequest(user.Username, "Password123!"));
         Assert.Equal(HttpStatusCode.Forbidden, login.StatusCode);
 
         await SetDisabled(super, user.Id, false);
-        login = await factory.CreateClient().PostAsJsonAsync("/api/auth/login", new LoginRequest(user.Username, "password123"));
+        login = await factory.CreateClient().PostAsJsonAsync("/api/auth/login", new LoginRequest(user.Username, "Password123!"));
         Assert.Equal(HttpStatusCode.OK, login.StatusCode);
     }
 
@@ -217,7 +217,7 @@ public class AdminTests(StudyHubFactory factory) : IClassFixture<StudyHubFactory
         foreach (var name in new[] { StudyHubFactory.SuperAdminUsername, StudyHubFactory.SuperAdminUsername.ToUpperInvariant() })
         {
             var res = await client.PostAsJsonAsync("/api/auth/register",
-                new RegisterRequest(name, $"{Guid.NewGuid():N}@example.com", "password123"));
+                new RegisterRequest(name, $"{Guid.NewGuid():N}@example.com", "Password123!"));
             Assert.Equal(HttpStatusCode.Conflict, res.StatusCode);
         }
     }

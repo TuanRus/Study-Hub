@@ -48,7 +48,7 @@ public class StudyHubFactory : WebApplicationFactory<Program>
         var client = CreateClient();
         username ??= "u" + Guid.NewGuid().ToString("N")[..10];
         var res = await client.PostAsJsonAsync("/api/auth/register",
-            new RegisterRequest(username, $"{username}@example.com", "password123"));
+            new RegisterRequest(username, $"{username}@example.com", "Password123!"));
         res.EnsureSuccessStatusCode();
         var auth = (await res.Content.ReadFromJsonAsync<AuthResponse>(TestJson.Options))!;
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
@@ -70,11 +70,11 @@ public class StudyHubFactory : WebApplicationFactory<Program>
                     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
                     var hasher = scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>();
                     var admin = await db.Users.SingleAsync(u => u.Username == SuperAdminUsername);
-                    admin.PasswordHash = hasher.HashPassword(admin, "password123");
+                    admin.PasswordHash = hasher.HashPassword(admin, "Password123!");
                     await db.SaveChangesAsync();
                 }
                 var res = await CreateClient().PostAsJsonAsync("/api/auth/login",
-                    new LoginRequest(SuperAdminUsername, "password123"));
+                    new LoginRequest(SuperAdminUsername, "Password123!"));
                 res.EnsureSuccessStatusCode();
                 _adminToken = (await res.Content.ReadFromJsonAsync<AuthResponse>(TestJson.Options))!.AccessToken;
             }

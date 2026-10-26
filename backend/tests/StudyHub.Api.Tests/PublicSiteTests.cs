@@ -99,7 +99,7 @@ public class PublicSiteTests
         {
             var req = new HttpRequestMessage(HttpMethod.Post, "/api/auth/login")
             {
-                Content = JsonContent.Create(new LoginRequest("nobody", "password123"))
+                Content = JsonContent.Create(new LoginRequest("nobody", "Password123!"))
             };
             req.Headers.Add("X-Forwarded-For", ip);
             return (await client.SendAsync(req)).StatusCode;

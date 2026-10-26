@@ -90,6 +90,8 @@ builder.Services.AddAuthorizationBuilder()
     .AddPolicy(Policies.SuperAdmin, p => p.RequireRole(nameof(UserRole.SuperAdmin)));
 
 builder.Services.AddScoped<IPasswordHasher<User>, PasswordHasher<User>>();
+builder.Services.Configure<PasswordPolicyOptions>(config.GetSection(PasswordPolicyOptions.Section));
+builder.Services.AddSingleton<PasswordPolicy>();
 builder.Services.AddSingleton<TokenService>();
 
 // ---------- App services ----------

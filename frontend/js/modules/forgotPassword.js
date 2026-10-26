@@ -5,6 +5,7 @@
 
 import { api, checkBackend, isBackendOnline } from '../utils/api.js';
 import { showToast } from '../utils/toast.js';
+import { attachPasswordChecklist, passwordProblem } from '../utils/passwordField.js';
 
 const RESEND_SECONDS = 60;
 
@@ -24,6 +25,7 @@ export function initForgotPassword() {
     const submitBtn = document.getElementById('forgot-submit-btn');
     const resendBtn = document.getElementById('forgot-resend-btn');
     const tabs = document.querySelector('.auth-tabs');
+    attachPasswordChecklist(newInput, document.getElementById('forgot-new-rules'));
 
     let codeSent = false;
     let resendTimer;
@@ -100,7 +102,8 @@ export function initForgotPassword() {
         const code = codeInput.value.replace(/\s/g, '');
         const newPassword = newInput.value;
         if (!/^\d{6}$/.test(code)) return showError('The code has 6 digits.');
-        if (newPassword.length < 8) return showError('New password must be at least 8 characters.');
+        const problem = passwordProblem(newPassword);
+        if (problem) return showError(problem);
         if (newPassword !== confirmInput.value) return showError('New passwords do not match.');
 
         submitBtn.disabled = true;

@@ -685,11 +685,12 @@
             </div>
             <div class="input-group">
                 <label for="pw-new">New password</label>
-                <input type="password" id="pw-new" required minlength="8" maxlength="100" autocomplete="new-password" placeholder="At least 8 characters">
+                <input type="password" id="pw-new" required maxlength="100" autocomplete="new-password" aria-describedby="pw-new-rules">
+                <ul class="password-checklist" id="pw-new-rules" aria-live="polite"></ul>
             </div>
             <div class="input-group">
                 <label for="pw-confirm">Confirm new password</label>
-                <input type="password" id="pw-confirm" required minlength="8" maxlength="100" autocomplete="new-password">
+                <input type="password" id="pw-confirm" required maxlength="100" autocomplete="new-password">
             </div>
             <p class="auth-message" id="pw-message" role="alert"></p>
             <div class="modal-actions">
@@ -931,6 +932,7 @@
                     <label for="auth-password">Password</label>
                     <input type="password" id="auth-password" required placeholder="Enter password..." autocomplete="current-password">
                     <button type="button" class="text-btn auth-forgot-link login-only" id="auth-forgot-btn">Forgot password?</button>
+                    <ul class="password-checklist" id="auth-password-rules" aria-live="polite" hidden></ul>
                 </div>
                 <div class="input-group register-only" style="display: none;">
                     <label for="auth-confirm-password">Confirm Password</label>
@@ -957,7 +959,8 @@
                     </div>
                     <div class="input-group">
                         <label for="forgot-new">New password</label>
-                        <input type="password" id="forgot-new" autocomplete="new-password" minlength="8" maxlength="100" placeholder="At least 8 characters">
+                        <input type="password" id="forgot-new" autocomplete="new-password" maxlength="100" aria-describedby="forgot-new-rules">
+                        <ul class="password-checklist" id="forgot-new-rules" aria-live="polite"></ul>
                     </div>
                     <div class="input-group">
                         <label for="forgot-confirm">Confirm new password</label>

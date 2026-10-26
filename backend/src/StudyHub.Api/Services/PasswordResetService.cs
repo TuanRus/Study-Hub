@@ -21,6 +21,7 @@ public class PasswordResetService(
     IEmailSender email,
     IPasswordHasher<User> hasher,
     IOptions<JwtOptions> jwt,
+    PasswordPolicy passwordPolicy,
     ILogger<PasswordResetService> logger)
 {
     public static readonly TimeSpan CodeLifetime = TimeSpan.FromMinutes(10);
@@ -68,6 +69,9 @@ public class PasswordResetService(
 
     public async Task ResetAsync(ResetPasswordRequest req, CancellationToken ct)
     {
+        // VI: Kiểm tra trước mã, để mật khẩu yếu không bị tính là một lần nhập sai mã.
+        // EN: Checked before the code, so a weak password does not count as a wrong code attempt.
+        passwordPolicy.EnsureStrong(req.NewPassword);
         var address = EmailAddresses.Normalize(req.Email);
         var user = await db.Users.FirstOrDefaultAsync(u => u.Email == address, ct);
         var stored = user is null ? null : await db.PasswordResetCodes.FirstOrDefaultAsync(c => c.UserId == user.Id, ct);

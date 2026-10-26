@@ -5,6 +5,7 @@
 
 import { authApi, api, isRemote, sessionUser } from '../utils/api.js';
 import { showToast } from '../utils/toast.js';
+import { attachPasswordChecklist, passwordProblem } from '../utils/passwordField.js';
 
 export function initAccount() {
     const modal = document.getElementById('password-modal');
@@ -12,6 +13,7 @@ export function initAccount() {
     const openBtn = document.getElementById('profile-password-btn');
     const message = document.getElementById('pw-message');
     if (!modal || !form || !openBtn) return;
+    attachPasswordChecklist(document.getElementById('pw-new'), document.getElementById('pw-new-rules'));
 
     const close = () => {
         modal.classList.add('hidden');
@@ -39,7 +41,8 @@ export function initAccount() {
         const newPassword = document.getElementById('pw-new').value;
         const confirmPassword = document.getElementById('pw-confirm').value;
 
-        if (newPassword.length < 8) return (message.textContent = 'New password must be at least 8 characters.');
+        const problem = passwordProblem(newPassword);
+        if (problem) return (message.textContent = problem);
         if (newPassword !== confirmPassword) return (message.textContent = 'New passwords do not match.');
         if (newPassword === currentPassword) return (message.textContent = 'New password must be different from the current one.');
 
