@@ -5,7 +5,8 @@
 
 import { getStorageData, setStorageData } from '../utils/storage.js';
 import { showToast } from '../utils/toast.js';
-import { api, isRemote, publicBaseUrl } from '../utils/api.js';
+import { api, isRemote, publicBaseUrl, sessionUser } from '../utils/api.js';
+import { BACKEND_URL } from '../config.js';
 
 // VI: Favorites khi chưa đăng nhập (giữ key cũ để không mất dữ liệu). EN: Logged-out Favorites (old key kept so no data is lost).
 export const MUSIC_STORAGE_KEY = 'studyhub_music';
@@ -37,18 +38,56 @@ function fromDetail(p) {
 export async function loadRemoteMusic() {
     const list = await api('/playlists');
     remotePlaylists = list.map(fromSummary);
+    nasEnabled = null;
     refreshLibrary();
 }
 
 export function clearRemoteMusic() {
     remotePlaylists = null;
+    nasEnabled = null;
     refreshLibrary();
+}
+
+// ---------- NAS library (Navidrome, admins only) ----------
+// VI: Kho nhạc riêng trên NAS, đi qua backend (mật khẩu Navidrome không xuống trình duyệt). Bài NAS có url "nas:<id>".
+// EN: The private NAS library, through the backend (the Navidrome password never reaches the browser). NAS songs use the url "nas:<id>".
+const NAS_VIEW = '__nas';
+let nasEnabled = null; // null = not checked yet
+let nasQuery = '';
+let nasResults = null;
+// VI: Mở hộp thoại "Lưu vào playlist"; được gán trong initMusic. EN: Opens the "Save to a playlist" dialog; set in initMusic.
+let openSaveDialog = () => {};
+
+function canUseNas() {
+    return isRemote() && ['Admin', 'SuperAdmin'].includes(sessionUser()?.role);
+}
+
+async function checkNas() {
+    if (!canUseNas()) return false;
+    if (nasEnabled === null) {
+        try {
+            nasEnabled = (await api('/library/status')).enabled;
+        } catch (e) {
+            nasEnabled = false;
+        }
+    }
+    return nasEnabled;
+}
+
+function isNasTrack(track) {
+    return /^nas:[A-Za-z0-9_-]{1,64}$/.test(track?.url || '');
+}
+
+function fromNasSong(song) {
+    const name = song.artist ? `${song.title} · ${song.artist}` : song.title;
+    return { id: `nas-${song.id}`, name, url: `nas:${song.id}`, type: 'nas', album: song.album || '' };
 }
 
 // ---------- Links ----------
 const YT_REGEX = /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=|live\/|shorts\/))([\w-]{11})/;
 
 function getMusicType(link) {
+    if (/^nas:/.test(link)) return 'nas';
     if (/^spotify:/.test(link) || link.includes('spotify.com')) return 'spotify';
     if (link.includes('youtube.com') || link.includes('youtu.be')) return 'youtube';
     return '';
@@ -83,6 +122,7 @@ function getEmbedUrl(link) {
 }
 
 function sameSong(a, b) {
+    if (getMusicType(a) === 'nas' || getMusicType(b) === 'nas') return a === b;
     return getEmbedUrl(a).split('?')[0] === getEmbedUrl(b).split('?')[0];
 }
 
@@ -219,8 +259,8 @@ function rememberPlaylist(id) {
 // EN: The player is a Dynamic Island-style "island": collapsed it shows the song name + play/pause, tap to expand.
 //     YouTube video only shows when expanded with "Show video" on; Spotify's frame only shows when expanded.
 const SHOW_VIDEO_KEY = 'studyhub_music_audio_only';
-// VI: control = { toggle } của nguồn đang phát (YouTube, Spotify); null khi chưa điều khiển được.
-// EN: control = { toggle } of the current source (YouTube, Spotify); null while it can't be controlled yet.
+// VI: control = { toggle } của nguồn đang phát (YouTube, Spotify, <audio> NAS); null khi chưa điều khiển được.
+// EN: control = { toggle } of the current source (YouTube, Spotify, NAS <audio>); null while it can't be controlled yet.
 const player = { tracks: [], index: 0, name: '', playlistId: null, repeat: false, mountId: 0,
     showVideo: loadShowVideo(), forceVideo: false, control: null, playing: false, title: '' };
 
@@ -249,13 +289,13 @@ function setPlaying(on) {
     syncIsland();
 }
 
-const SOURCE_ICONS = { youtube: 'ph-youtube-logo', spotify: 'ph-spotify-logo' };
+const SOURCE_ICONS = { youtube: 'ph-youtube-logo', spotify: 'ph-spotify-logo', nas: 'ph-hard-drives' };
 
 function syncIsland() {
     const container = document.getElementById('music-player-container');
     const track = player.tracks[player.index];
     const type = track ? getMusicType(track.url) : '';
-    for (const t of ['youtube', 'spotify']) container?.classList.toggle(`is-${t}`, type === t);
+    for (const t of ['youtube', 'spotify', 'nas']) container?.classList.toggle(`is-${t}`, type === t);
     container?.classList.toggle('show-video', player.showVideo || player.forceVideo);
     container?.classList.toggle('is-playing', player.playing);
 
@@ -320,6 +360,15 @@ function plainIframe(src) {
     return iframe;
 }
 
+// VI: Link phát bài NAS: chủ playlist (admin) lấy từ kho nhạc; khách lấy qua mã chia sẻ của playlist.
+// EN: NAS stream link: the owner (admin) gets it from the library; visitors get it through the playlist's share code.
+function nasStreamUrl(track) {
+    if (track.shareCode) {
+        return api(`/shared-playlists/${encodeURIComponent(track.shareCode)}/tracks/${encodeURIComponent(track.id)}/stream-url`);
+    }
+    return api(`/library/songs/${encodeURIComponent(track.url.slice(4))}/stream-url`);
+}
+
 // VI: Gắn bài vào khung phát và nối nút play/pause của đảo với nguồn đó. Có hàng đợi thì nghe sự kiện "hết bài" để tự chuyển.
 //     API YouTube/Spotify không tải được (bị chặn) thì mở rộng đảo để dùng nút của chính trình phát.
 // EN: Mounts a track and wires the island's play/pause to that source. With a queue, listens for "ended" to move on.
@@ -340,6 +389,29 @@ function mountTrack(track) {
     player.playing = false;
     player.title = '';
     player.forceVideo = false;
+
+    // VI: Bài NAS: <audio> thường, link phát có token ngắn hạn. EN: NAS song: a plain <audio>, stream link with a short-lived token.
+    if (isNasTrack(track)) {
+        const audio = document.createElement('audio');
+        audio.controls = true;
+        audio.preload = 'auto';
+        audio.addEventListener('play', () => { if (isCurrent()) setPlaying(true); });
+        audio.addEventListener('pause', () => { if (isCurrent()) setPlaying(false); });
+        audio.addEventListener('ended', () => { if (autoAdvance) onEnded(); });
+        audio.addEventListener('error', () => {
+            if (isCurrent() && audio.getAttribute('src')) showToast(`Can't play "${track.name}" from the NAS.`, 'error');
+        });
+        frame.replaceChildren(audio);
+        player.control = { toggle: () => (audio.paused ? audio.play().catch(() => {}) : audio.pause()) };
+        nasStreamUrl(track).then((link) => {
+            if (!isCurrent()) return;
+            audio.src = BACKEND_URL + link.url;
+            audio.play().catch(() => {});
+        }).catch((err) => {
+            if (isCurrent()) showToast(err.status === 404 ? 'This NAS song is no longer available.' : (err.message || 'Could not reach the NAS music library.'), 'error');
+        });
+        return;
+    }
 
     // VI: YouTube luôn dùng API (kể cả bài lẻ) để play/pause được khi video bị ẩn.
     // EN: YouTube always uses the API (even for a single song) so play/pause works while the video is hidden.
@@ -459,7 +531,7 @@ function playAt(index) {
     const container = document.getElementById('music-player-container');
     const track = player.tracks[index];
     if (!container || !track) return;
-    if (!getEmbedUrl(track.url)) {
+    if (!getEmbedUrl(track.url) && !isNasTrack(track)) {
         showToast(`Can't play "${track.name || track.url}". Skipping.`, 'error');
         if (index < player.tracks.length - 1) playAt(index + 1);
         return;
@@ -565,6 +637,15 @@ async function renderLibrary() {
         return;
     }
 
+    if (openPlaylistId === NAS_VIEW) {
+        back.hidden = false;
+        title.innerHTML = '<i class="ph ph-hard-drives"></i> NAS library';
+        title.title = '';
+        actions.replaceChildren();
+        renderNasView(body);
+        return;
+    }
+
     let playlist;
     try {
         playlist = await store.get(openPlaylistId);
@@ -628,6 +709,90 @@ function renderPlaylistList(body) {
     }
     const hint = isRemote() ? null : el('p', 'music-library-hint', 'Log in to share playlists and keep them on every device.');
     body.replaceChildren(list, ...(hint ? [hint] : []));
+
+    // VI: Admin + server đã cấu hình Navidrome thì thêm dòng "NAS library" ở cuối. EN: Admin + Navidrome configured: add a "NAS library" row.
+    checkNas().then((enabled) => {
+        if (!enabled || openPlaylistId !== null || !list.isConnected) return;
+        const li = el('li', 'playlist-row');
+        const open = el('button', 'playlist-open');
+        open.type = 'button';
+        const text = el('span', 'playlist-text');
+        text.append(el('strong', '', 'NAS library'), el('small', '', 'Your music on the NAS · only you'));
+        open.append(el('i', 'ph-fill ph-hard-drives'), text);
+        open.addEventListener('click', () => { openPlaylistId = NAS_VIEW; renderLibrary(); });
+        li.append(open);
+        list.appendChild(li);
+    });
+}
+
+// VI: Tìm trong kho NAS; ô trống = bài ngẫu nhiên. Bấm một bài để phát cả danh sách kết quả từ bài đó.
+// EN: Search the NAS library; empty = random songs. Clicking a song plays the result list from there.
+function renderNasView(body) {
+    const form = el('form', 'nas-search');
+    const input = el('input');
+    input.type = 'search';
+    input.placeholder = 'Search songs, artists, albums...';
+    input.setAttribute('aria-label', 'Search the NAS library');
+    input.maxLength = 200;
+    input.value = nasQuery;
+    const submit = iconButton('ph ph-magnifying-glass', 'Search', 'icon-btn icon-btn-xs');
+    submit.type = 'submit';
+    form.append(input, submit);
+    const results = el('div');
+    form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        nasQuery = input.value.trim();
+        searchNas(results);
+    });
+    body.replaceChildren(form, results);
+    if (nasResults) renderNasResults(results);
+    else searchNas(results);
+    input.focus();
+}
+
+async function searchNas(results) {
+    results.innerHTML = '<p class="music-library-hint">Loading...</p>';
+    try {
+        nasResults = (await api(`/library/songs?q=${encodeURIComponent(nasQuery)}`)).map(fromNasSong);
+    } catch (err) {
+        nasResults = null;
+        results.replaceChildren(el('p', 'music-library-hint', err.message || 'Could not reach the NAS music library.'));
+        return;
+    }
+    if (results.isConnected) renderNasResults(results);
+}
+
+function renderNasResults(results) {
+    if (!nasResults.length) {
+        results.innerHTML = '<p class="empty-state"><i class="ph ph-music-notes-simple"></i>No songs found.</p>';
+        return;
+    }
+    const list = el('ul', 'music-list');
+    nasResults.forEach((song, index) => {
+        const li = el('li', 'music-item');
+        li.classList.toggle('is-playing', player.tracks[player.index]?.id === song.id);
+        const info = el('div', 'music-item-info');
+        const text = el('div');
+        text.append(el('span', '', song.name));
+        if (song.album) text.append(el('small', '', song.album));
+        info.append(el('i', 'ph-fill ph-hard-drives'), text);
+        const play = iconButton('ph-fill ph-play', 'Play from here', 'play-music-item-btn');
+        play.addEventListener('click', () => {
+            playQueue(nasResults, index, nasQuery ? `NAS: ${nasQuery}` : 'NAS library');
+            setLibraryOpen(false);
+        });
+        // VI: Lưu bài NAS vào playlist của mình (chia sẻ playlist thì khách nghe được qua link). EN: Save a NAS song to your playlist (sharing the playlist lets visitors hear it).
+        const save = iconButton('ph ph-heart', 'Save to a playlist', 'play-music-item-btn');
+        save.addEventListener('click', () => {
+            setLibraryOpen(false);
+            openSaveDialog(song.url, song.name);
+        });
+        const controls = el('div', 'music-item-controls');
+        controls.append(save, play);
+        li.append(info, controls);
+        list.appendChild(li);
+    });
+    results.replaceChildren(list);
 }
 
 // VI: Dùng textContent để chặn XSS. EN: Uses textContent to prevent XSS.
@@ -655,7 +820,7 @@ function renderTracks(body, playlist) {
         `;
         li.querySelector('.music-item-info span').textContent = music.name;
         const linkEl = li.querySelector('.music-item-info a');
-        linkEl.textContent = music.url;
+        linkEl.textContent = music.type === 'nas' ? 'NAS library' : music.url;
         if (/^https?:\/\//i.test(music.url)) linkEl.href = music.url;
         li.querySelector('.play-music-item-btn').addEventListener('click', () => {
             playQueue(playlist.tracks, index, playlist.name, playlist.id);
@@ -773,7 +938,9 @@ export async function openSharedPlaylist(code) {
         showToast(err.status === 404 ? 'This playlist is no longer shared.' : 'Could not load the shared playlist.', 'error', 5000);
         return;
     }
-    const tracks = sharedPlaylist.tracks.map(fromTrack);
+    // VI: Bài NAS nghe qua mã chia sẻ. EN: NAS songs play through the share code.
+    const tracks = sharedPlaylist.tracks.map(fromTrack)
+        .map(t => (t.type === 'nas' ? { ...t, shareCode: sharedPlaylist.shareCode } : t));
     sharedPlaylist.items = tracks;
     document.getElementById('shared-playlist-name').textContent = sharedPlaylist.name;
 
@@ -857,18 +1024,22 @@ export function initMusic() {
 
     let pendingLink = '';
 
+    openSaveDialog = (link, name = '') => {
+        pendingLink = link;
+        saveForm.reset();
+        saveName.value = name;
+        fillPlaylistSelect(saveSelect);
+        syncNewName();
+        openModal(saveModal);
+        saveName.focus();
+    };
+
     saveMusicBtn?.addEventListener('click', () => {
         const link = musicLinkInput.value.trim();
         // VI: Early returns để validate input ngay từ đầu. EN: Early returns to validate input upfront.
         if (!link) return showToast('Please paste a link first.', 'error');
         if (!getEmbedUrl(link)) return showToast('Invalid link. Only Spotify or YouTube links are supported.', 'error');
-
-        pendingLink = link;
-        saveForm.reset();
-        fillPlaylistSelect(saveSelect);
-        syncNewName();
-        openModal(saveModal);
-        saveName.focus();
+        openSaveDialog(link);
     });
 
     saveForm?.addEventListener('submit', async (e) => {

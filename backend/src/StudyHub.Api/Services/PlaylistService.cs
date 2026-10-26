@@ -50,10 +50,12 @@ public class PlaylistService(AppDbContext db)
         await db.SaveChangesAsync(ct);
     }
 
-    public async Task<TrackDto> AddTrackAsync(Guid userId, Guid playlistId, AddTrackRequest req, CancellationToken ct)
+    // VI: allowNas = người gọi là admin (kho nhạc NAS là của riêng chủ server).
+    // EN: allowNas = the caller is an admin (the NAS library belongs to the server owner).
+    public async Task<TrackDto> AddTrackAsync(Guid userId, Guid playlistId, AddTrackRequest req, bool allowNas, CancellationToken ct)
     {
         var playlist = await FindAsync(userId, playlistId, includeTracks: true, ct);
-        var resolved = MusicLinkResolver.Resolve(req.Url);
+        var resolved = MusicLinkResolver.Resolve(req.Url, allowNas);
 
         if (playlist.Tracks.Count >= MaxTracksPerPlaylist)
             throw new BadRequestException($"A playlist can hold at most {MaxTracksPerPlaylist} tracks.");
@@ -130,7 +132,8 @@ public class PlaylistService(AppDbContext db)
         await EnsureRoomForPlaylistAsync(userId, ct);
         var copy = new Playlist { UserId = userId, Name = source.Name };
         var position = 0;
-        foreach (var t in source.Tracks.OrderBy(t => t.Position))
+        // VI: Bài NAS chỉ nghe qua link chia sẻ, không chép sang tài khoản khác. EN: NAS songs only play through the share link; they are not copied to other accounts.
+        foreach (var t in source.Tracks.Where(t => t.Provider != MusicProvider.Nas || source.UserId == userId).OrderBy(t => t.Position))
         {
             copy.Tracks.Add(new Track
             {
@@ -140,6 +143,16 @@ public class PlaylistService(AppDbContext db)
         db.Playlists.Add(copy);
         await db.SaveChangesAsync(ct);
         return ToDetail(copy);
+    }
+
+    // VI: Id bài Navidrome của một bài NAS trong playlist đang chia sẻ (để khách có link nghe).
+    // EN: The Navidrome song id of a NAS track in a shared playlist (so visitors get a link to listen).
+    public async Task<string> GetSharedNasSongIdAsync(string code, Guid trackId, CancellationToken ct)
+    {
+        var playlist = await FindSharedAsync(code, ct);
+        var track = playlist.Tracks.FirstOrDefault(t => t.Id == trackId && t.Provider == MusicProvider.Nas)
+                    ?? throw new NotFoundException("Track");
+        return track.SourceUrl[4..];
     }
 
     internal async Task EnsureRoomForPlaylistAsync(Guid userId, CancellationToken ct)
@@ -169,7 +182,12 @@ public class PlaylistService(AppDbContext db)
     }
 
     internal static string DefaultTitle(MusicProvider provider) =>
-        provider == MusicProvider.YouTube ? "YouTube video" : "Spotify track";
+        provider switch
+        {
+            MusicProvider.YouTube => "YouTube video",
+            MusicProvider.Nas => "NAS song",
+            _ => "Spotify track",
+        };
 
     private async Task<Playlist> FindAsync(Guid userId, Guid id, bool includeTracks, CancellationToken ct)
     {

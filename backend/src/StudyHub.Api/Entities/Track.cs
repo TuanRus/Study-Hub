@@ -3,7 +3,9 @@ namespace StudyHub.Api.Entities;
 public enum MusicProvider
 {
     YouTube = 0,
-    Spotify = 1
+    Spotify = 1,
+    // VI: Bài trong kho nhạc NAS (Navidrome), SourceUrl = "nas:<id>". Chỉ admin thêm được. EN: A song from the NAS library (Navidrome), SourceUrl = "nas:<id>". Admins only.
+    Nas = 2
 }
 
 public class Track

@@ -11,9 +11,20 @@ public static partial class MusicLinkResolver
 {
     private static readonly HashSet<string> SpotifyTypes = ["track", "album", "playlist", "episode", "show", "artist"];
 
-    public static ResolvedMusicDto Resolve(string input)
+    // VI: allowNas = cho phép bài NAS "nas:<id>" (chỉ khi admin thêm vào playlist). Hồ sơ, import... không bao giờ nhận bài NAS.
+    // EN: allowNas = accept a NAS song "nas:<id>" (only when an admin adds it to a playlist). Profiles, imports... never take NAS songs.
+    public static ResolvedMusicDto Resolve(string input, bool allowNas = false)
     {
         var raw = input.Trim();
+
+        // VI: Bài NAS: "nas:<id bài Navidrome>". EN: NAS song: "nas:<Navidrome song id>".
+        if (allowNas && raw.StartsWith("nas:", StringComparison.Ordinal))
+        {
+            var songId = raw[4..];
+            if (!NavidromeClient.SongIdPattern().IsMatch(songId))
+                throw new BadRequestException("Not a valid NAS song.");
+            return new(MusicProvider.Nas, $"nas:{songId}", songId);
+        }
 
         var uri = SpotifyUri().Match(raw);
         if (uri.Success)

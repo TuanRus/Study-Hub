@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using StudyHub.Api.Common;
 using StudyHub.Api.Dtos;
+using StudyHub.Api.Entities;
 using StudyHub.Api.Services;
 
 namespace StudyHub.Api.Controllers;
@@ -10,7 +11,7 @@ namespace StudyHub.Api.Controllers;
 [ApiController]
 [Authorize]
 [Tags("Music")]
-public class MusicController(PlaylistService playlists) : ControllerBase
+public class MusicController(PlaylistService playlists, LibraryStreamLinks nasLinks) : ControllerBase
 {
     /// <summary>Turn a YouTube or Spotify link into an embeddable URL. Works without signing in.</summary>
     [AllowAnonymous]
@@ -43,12 +44,13 @@ public class MusicController(PlaylistService playlists) : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Add a YouTube/Spotify link to a playlist.</summary>
+    /// <summary>Add a YouTube/Spotify link to a playlist. Admins can also add NAS songs ("nas:&lt;id&gt;").</summary>
     [HttpPost("api/playlists/{id:guid}/tracks")]
     [ProducesResponseType<TrackDto>(StatusCodes.Status201Created)]
     public async Task<IActionResult> AddTrack(Guid id, AddTrackRequest req, CancellationToken ct)
     {
-        var track = await playlists.AddTrackAsync(User.GetUserId(), id, req, ct);
+        var track = await playlists.AddTrackAsync(User.GetUserId(), id, req,
+            User.IsInRole(nameof(UserRole.Admin)) || User.IsInRole(nameof(UserRole.SuperAdmin)), ct);
         return StatusCode(StatusCodes.Status201Created, track);
     }
 
@@ -77,7 +79,15 @@ public class MusicController(PlaylistService playlists) : ControllerBase
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public Task<SharedPlaylistDto> GetShared(string code, CancellationToken ct) => playlists.GetSharedAsync(code, ct);
 
-    /// <summary>Save a copy of a shared playlist to your own playlists.</summary>
+    /// <summary>A short-lived link to listen to a NAS song of a shared playlist, no sign-in needed.</summary>
+    [AllowAnonymous]
+    [HttpGet("api/shared-playlists/{code}/tracks/{trackId:guid}/stream-url")]
+    [EnableRateLimiting("public")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<LibraryStreamDto> SharedStreamUrl(string code, Guid trackId, CancellationToken ct) =>
+        nasLinks.Create(await playlists.GetSharedNasSongIdAsync(code, trackId, ct));
+
+    /// <summary>Save a copy of a shared playlist to your own playlists. NAS songs are not copied.</summary>
     [HttpPost("api/shared-playlists/{code}/copy")]
     [ProducesResponseType<PlaylistDetailDto>(StatusCodes.Status201Created)]
     public async Task<IActionResult> CopyShared(string code, CancellationToken ct)

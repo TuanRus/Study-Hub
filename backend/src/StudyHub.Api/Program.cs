@@ -35,6 +35,10 @@ foreach (var (env, key) in new[] { ("SMTP_HOST", "Host"), ("SMTP_PORT", "Port"),
              ("SMTP_PASSWORD", "Password"), ("SMTP_FROM", "From") })
     if (string.IsNullOrWhiteSpace(config[$"{SmtpOptions.Section}:{key}"]) && !string.IsNullOrWhiteSpace(config[env]))
         envAliases[$"{SmtpOptions.Section}:{key}"] = config[env]!.Trim();
+// VI: NAVIDROME_URL → Navidrome:Url... (kho nhạc NAS). EN: NAVIDROME_URL → Navidrome:Url... (NAS music library).
+foreach (var (env, key) in new[] { ("NAVIDROME_URL", "Url"), ("NAVIDROME_USERNAME", "Username"), ("NAVIDROME_PASSWORD", "Password") })
+    if (string.IsNullOrWhiteSpace(config[$"{NavidromeOptions.Section}:{key}"]) && !string.IsNullOrWhiteSpace(config[env]))
+        envAliases[$"{NavidromeOptions.Section}:{key}"] = key == "Password" ? config[env] : config[env]!.Trim();
 if (envAliases.Count > 0) config.AddInMemoryCollection(envAliases);
 
 // ---------- Database ----------
@@ -105,6 +109,10 @@ builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<PomodoroService>();
 builder.Services.AddScoped<StatsService>();
 builder.Services.AddScoped<PlaylistService>();
+builder.Services.Configure<NavidromeOptions>(config.GetSection(NavidromeOptions.Section));
+builder.Services.AddHttpClient<NavidromeClient>(c => c.Timeout = TimeSpan.FromSeconds(30));
+builder.Services.AddDataProtection();
+builder.Services.AddSingleton<LibraryStreamLinks>();
 builder.Services.AddScoped<ImportService>();
 builder.Services.AddScoped<ProfileService>();
 builder.Services.AddScoped<AdminService>();
