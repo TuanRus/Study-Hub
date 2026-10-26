@@ -36,7 +36,9 @@ public partial class ProfileService(AppDbContext db, IOptions<JwtOptions> jwt)
         return ToDto(profile, await StatsAsync(userId, ct));
     }
 
-    public async Task<ProfileDto> SaveAsync(Guid userId, SaveProfileRequest req, CancellationToken ct)
+    // VI: allowNas = người lưu là admin, được chọn bài trong kho nhạc NAS ("nas:<id>") làm nhạc hồ sơ.
+    // EN: allowNas = the caller is an admin and may pick a NAS library song ("nas:<id>") as the profile song.
+    public async Task<ProfileDto> SaveAsync(Guid userId, SaveProfileRequest req, bool allowNas, CancellationToken ct)
     {
         var profile = await EnsureAsync(userId, ct);
         var slug = req.Slug.Trim().ToLowerInvariant();
@@ -64,9 +66,11 @@ public partial class ProfileService(AppDbContext db, IOptions<JwtOptions> jwt)
             links[type] = HttpUrl(value, $"Link '{key}'");
         }
 
-        var song = OptionalUrl(req.SongUrl, "SongUrl");
+        var song = req.SongUrl?.Trim() is { Length: > 0 } rawSong && rawSong.StartsWith("nas:", StringComparison.Ordinal)
+            ? MusicLinkResolver.Resolve(rawSong, allowNas).EmbedUrl
+            : OptionalUrl(req.SongUrl, "SongUrl");
         if (song is not null)
-            MusicLinkResolver.Resolve(song);
+            MusicLinkResolver.Resolve(song, allowNas);
 
         profile.Slug = slug;
         profile.DisplayName = req.DisplayName.Trim();
@@ -125,6 +129,21 @@ public partial class ProfileService(AppDbContext db, IOptions<JwtOptions> jwt)
         return new PublicProfileDto(profile.Slug, profile.DisplayName, profile.AvatarUrl, profile.Bio, profile.Location,
             profile.Role, KnownBadges(profile.Badges), profile.Background, profile.BackgroundUrl, profile.Effect, profile.AccentColor,
             profile.SongUrl, profile.Links, profile.ViewCount, stats, isOwner);
+    }
+
+    // VI: Id bài Navidrome khi nhạc hồ sơ là bài NAS, để khách xem bio nghe được đúng bài đó (không mở cả kho nhạc).
+    //     Ẩn nếu hồ sơ riêng tư, bị ẩn, hoặc chủ tài khoản bị khóa.
+    // EN: The Navidrome song id when the profile song is a NAS song, so bio visitors hear that one song (not the whole library).
+    //     Hidden when the profile is private or suspended, or the owner's account is locked.
+    public async Task<string> GetPublicNasSongIdAsync(string slug, CancellationToken ct)
+    {
+        var normalized = slug.Trim().ToLowerInvariant();
+        var song = await db.Profiles.AsNoTracking()
+            .Where(p => p.Slug == normalized && p.IsPublic && !p.IsSuspended && !p.User.IsDisabled)
+            .Select(p => p.SongUrl)
+            .FirstOrDefaultAsync(ct);
+        if (song is null || !song.StartsWith("nas:", StringComparison.Ordinal)) throw new NotFoundException("Song");
+        return song[4..];
     }
 
     // VI: Tạo hồ sơ mặc định cho user mới (gọi trong lúc đăng ký, trước SaveChanges).

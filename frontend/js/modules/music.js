@@ -361,8 +361,11 @@ function plainIframe(src) {
 }
 
 // VI: Link phát bài NAS: chủ playlist (admin) lấy từ kho nhạc; khách lấy qua mã chia sẻ của playlist.
+//     Nhạc hồ sơ trên trang bio thì lấy qua slug của hồ sơ.
 // EN: NAS stream link: the owner (admin) gets it from the library; visitors get it through the playlist's share code.
+//     A profile song on a bio page gets it through the profile's slug.
 function nasStreamUrl(track) {
+    if (track.profileSlug) return api(`/profiles/${encodeURIComponent(track.profileSlug)}/song/stream-url`);
     if (track.shareCode) {
         return api(`/shared-playlists/${encodeURIComponent(track.shareCode)}/tracks/${encodeURIComponent(track.id)}/stream-url`);
     }
@@ -407,6 +410,10 @@ function mountTrack(track) {
             if (!isCurrent()) return;
             audio.src = BACKEND_URL + link.url;
             audio.play().catch(() => {});
+            if (link.title && !track.name) {
+                player.title = link.title;
+                renderPlayerHead();
+            }
         }).catch((err) => {
             if (isCurrent()) showToast(err.status === 404 ? 'This NAS song is no longer available.' : (err.message || 'Could not reach the NAS music library.'), 'error');
         });
@@ -574,6 +581,16 @@ export function playMusic(link) {
     }
     player.repeat = false;
     playQueue([{ id: 'single', name: '', url: link }]);
+}
+
+// VI: Phát nhạc hồ sơ: link YouTube/Spotify, hoặc bài NAS ("nas:<id>"). Trên trang bio của người khác thì
+//     truyền slug để khách nghe bài NAS qua hồ sơ; hồ sơ của chính mình (admin) thì lấy thẳng từ kho nhạc.
+// EN: Plays a profile song: a YouTube/Spotify link, or a NAS song ("nas:<id>"). On someone's bio page pass the
+//     slug so visitors hear the NAS song through the profile; your own profile (admin) streams from the library.
+export function playProfileSong(link, slug = null) {
+    if (!isNasTrack({ url: link })) return playMusic(link);
+    player.repeat = false;
+    playQueue([{ id: 'profile-song', name: '', url: link, type: 'nas', profileSlug: slug }]);
 }
 
 function stopPlayer() {
@@ -787,8 +804,13 @@ function renderNasResults(results) {
             setLibraryOpen(false);
             openSaveDialog(song.url, song.name);
         });
+        // VI: Dùng làm nhạc hồ sơ (bio); profile.js lưu lại. EN: Use as the profile (bio) song; profile.js saves it.
+        const bio = iconButton('ph ph-user-sound', 'Use as profile song', 'play-music-item-btn');
+        bio.addEventListener('click', () => {
+            window.dispatchEvent(new CustomEvent('studyhub:profile-song', { detail: { url: song.url, name: song.name } }));
+        });
         const controls = el('div', 'music-item-controls');
-        controls.append(save, play);
+        controls.append(bio, save, play);
         li.append(info, controls);
         list.appendChild(li);
     });

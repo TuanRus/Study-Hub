@@ -11,7 +11,7 @@ import { api, isRemote, visitorId, publicBaseUrl, currentUserName } from '../uti
 import { SERVED_BY_BACKEND } from '../config.js';
 import { showToast } from '../utils/toast.js';
 import { getTodos } from './todo.js';
-import { playMusic } from './music.js';
+import { playProfileSong } from './music.js';
 
 export const PROFILE_KEY = 'studyhub_profile';
 const VIEWS_KEY = 'studyhub_profile_views';
@@ -166,6 +166,12 @@ function safeUrl(value) {
     } catch (e) {
         return '';
     }
+}
+
+// VI: Nhạc hồ sơ: link http(s), hoặc bài trong kho nhạc NAS ("nas:<id>", chỉ admin; server kiểm tra lại).
+// EN: Profile song: an http(s) link, or a NAS library song ("nas:<id>", admins only; the server checks again).
+function songUrl(value) {
+    return /^nas:[A-Za-z0-9_-]{1,64}$/.test(value) ? value : safeUrl(value);
 }
 
 function cssUrl(value) {
@@ -572,7 +578,7 @@ function initEditor() {
             backgroundUrl: safeUrl(document.getElementById('pf-bg-url').value.trim()),
             effect: document.getElementById('pf-effect').value,
             accent: document.getElementById('pf-accent').value,
-            song: safeUrl(document.getElementById('pf-song').value.trim()),
+            song: songUrl(document.getElementById('pf-song').value.trim()),
             links,
         };
         if (remoteProfile) {
@@ -697,12 +703,28 @@ export function initProfile() {
         enterBtn.addEventListener('click', () => {
             document.getElementById('profile-stage').classList.add('entered');
             const song = getProfile().song;
-            if (song) playMusic(song);
+            if (song) playProfileSong(song);
         });
     }
     initTilt();
     initEditor();
     renderProfile();
+
+    // VI: Nút "Use as profile song" trong kho nhạc NAS: chỉ đổi nhạc hồ sơ, giữ nguyên các trường khác.
+    // EN: The NAS library's "Use as profile song" button: only changes the profile song, keeps every other field.
+    window.addEventListener('studyhub:profile-song', async (e) => {
+        if (!remoteProfile) return showToast('Log in to set a profile song.', 'info');
+        try {
+            remoteProfile = await api('/profile', {
+                method: 'PUT',
+                body: toServer({ ...fromServer(remoteProfile), song: e.detail.url }, remoteProfile.isPublic),
+            });
+            showToast(`"${e.detail.name}" is now your profile song.`, 'success');
+            renderProfile();
+        } catch (err) {
+            showToast(err.message, 'error', 5000);
+        }
+    });
 }
 
 // ---------- Public page (/@username or ?u=username) ----------
@@ -772,6 +794,6 @@ export async function initPublicProfile(slug) {
 
     document.getElementById('profile-enter')?.addEventListener('click', () => {
         document.getElementById('profile-stage').classList.add('entered');
-        if (profile.song) playMusic(profile.song);
+        if (profile.song) playProfileSong(profile.song, slug);
     });
 }

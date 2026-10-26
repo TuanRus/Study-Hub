@@ -26,6 +26,8 @@ public class LibraryTests
             var path = request.RequestUri!.AbsolutePath;
             if (path.EndsWith("/rest/search3"))
                 return Task.FromResult(Json("""{"subsonic-response":{"status":"ok","searchResult3":{"song":[{"id":"abc123","title":"Lofi Song","artist":"Chill","album":"Beats","duration":185}]}}}"""));
+            if (path.EndsWith("/rest/getSong"))
+                return Task.FromResult(Json("""{"subsonic-response":{"status":"ok","song":{"id":"abc123","title":"Lofi Song","artist":"Chill"}}}"""));
             if (path.EndsWith("/rest/getRandomSongs"))
                 return Task.FromResult(Json("""{"subsonic-response":{"status":"ok","randomSongs":{"song":[{"id":"r1","title":"Random"}]}}}"""));
             if (path.EndsWith("/rest/stream"))
@@ -205,6 +207,39 @@ public class LibraryTests
         // VI: Tắt chia sẻ thì khách hết lấy được link mới. EN: Unsharing stops new links.
         await admin.PutAsJsonAsync($"/api/playlists/{playlist.Id}/share", new SharePlaylistRequest(false));
         Assert.Equal(HttpStatusCode.NotFound, (await visitor.GetAsync($"/api/shared-playlists/{code}/tracks/{nas.Id}/stream-url")).StatusCode);
+    }
+
+    private static SaveProfileRequest ProfileWithSong(string slug, string song, bool isPublic = true) =>
+        new(slug, "Test User", SongUrl: song, IsPublic: isPublic);
+
+    [Fact]
+    public async Task Admin_can_use_a_nas_song_on_the_bio_and_visitors_hear_only_that_song()
+    {
+        using var factory = new LibraryFactory(configured: true);
+        var user = await factory.CreateUserClientAsync();
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await user.PutAsJsonAsync("/api/profile", ProfileWithSong("plainuser", "nas:abc123"))).StatusCode);
+
+        var admin = await factory.CreateSuperAdminClientAsync();
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await admin.PutAsJsonAsync("/api/profile", ProfileWithSong("nasowner", "nas:bad id"))).StatusCode);
+        var saved = await admin.PutAsJsonAsync("/api/profile", ProfileWithSong("nasowner", "nas:abc123"));
+        Assert.Equal(HttpStatusCode.OK, saved.StatusCode);
+
+        var visitor = factory.CreateClient();
+        var profile = await visitor.GetFromJsonAsync<PublicProfileDto>("/api/profiles/nasowner?countView=false", TestJson.Options);
+        Assert.Equal("nas:abc123", profile!.SongUrl);
+
+        var link = await visitor.GetFromJsonAsync<LibraryStreamDto>("/api/profiles/nasowner/song/stream-url", TestJson.Options);
+        Assert.Equal("Lofi Song · Chill", link!.Title);
+        Assert.Contains("/api/library/songs/abc123/stream?token=", link.Url);
+        Assert.Equal("ID3-full-song", await (await visitor.GetAsync(link.Url)).Content.ReadAsStringAsync());
+
+        // VI: Hồ sơ riêng tư hoặc nhạc YouTube thì không có link NAS. EN: A private profile or a YouTube song gives no NAS link.
+        await admin.PutAsJsonAsync("/api/profile", ProfileWithSong("nasowner", "nas:abc123", isPublic: false));
+        Assert.Equal(HttpStatusCode.NotFound, (await visitor.GetAsync("/api/profiles/nasowner/song/stream-url")).StatusCode);
+        await admin.PutAsJsonAsync("/api/profile", ProfileWithSong("nasowner", "https://youtu.be/dQw4w9WgXcQ"));
+        Assert.Equal(HttpStatusCode.NotFound, (await visitor.GetAsync("/api/profiles/nasowner/song/stream-url")).StatusCode);
     }
 
     [Fact]

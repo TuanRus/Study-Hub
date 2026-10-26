@@ -60,6 +60,24 @@ public partial class NavidromeClient(HttpClient http, IOptions<NavidromeOptions>
             s.TryGetProperty("duration", out var d) && d.TryGetInt32(out var seconds) ? seconds : null)).ToList();
     }
 
+    /// <summary>"Title · Artist" of a song, or null when Navidrome can't tell (the song still plays).</summary>
+    public async Task<string?> TryGetSongTitleAsync(string songId, CancellationToken ct)
+    {
+        if (!IsConfigured) return null;
+        try
+        {
+            using var doc = await GetJsonAsync(BuildUrl("getSong", ("id", songId)), ct);
+            if (!doc.RootElement.GetProperty("subsonic-response").TryGetProperty("song", out var song)) return null;
+            var title = Text(song, "title");
+            var artist = Text(song, "artist");
+            return title is null ? null : artist is null ? title : $"{title} · {artist}";
+        }
+        catch (AppException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>Starts streaming a song. The caller disposes the response.</summary>
     public async Task<HttpResponseMessage> StreamAsync(string songId, string? range, CancellationToken ct)
     {

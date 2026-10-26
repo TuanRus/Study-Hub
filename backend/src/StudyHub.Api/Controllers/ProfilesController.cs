@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using StudyHub.Api.Common;
 using StudyHub.Api.Dtos;
+using StudyHub.Api.Entities;
 using StudyHub.Api.Services;
 
 namespace StudyHub.Api.Controllers;
@@ -10,7 +11,7 @@ namespace StudyHub.Api.Controllers;
 [ApiController]
 [Authorize]
 [Tags("Profiles")]
-public class ProfilesController(ProfileService profiles, ReportService reports) : ControllerBase
+public class ProfilesController(ProfileService profiles, ReportService reports, NavidromeClient navidrome, LibraryStreamLinks nasLinks) : ControllerBase
 {
     /// <summary>Your own bio-link profile (created on first use).</summary>
     [HttpGet("api/profile")]
@@ -20,7 +21,8 @@ public class ProfilesController(ProfileService profiles, ReportService reports) 
     [HttpPut("api/profile")]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
     public Task<ProfileDto> Save(SaveProfileRequest req, CancellationToken ct) =>
-        profiles.SaveAsync(User.GetUserId(), req, ct);
+        profiles.SaveAsync(User.GetUserId(), req,
+            User.IsInRole(nameof(UserRole.Admin)) || User.IsInRole(nameof(UserRole.SuperAdmin)), ct);
 
     /// <summary>Whether a slug is free for you to use.</summary>
     [HttpGet("api/profile/slug-available")]
@@ -45,6 +47,17 @@ public class ProfilesController(ProfileService profiles, ReportService reports) 
             Request.Headers.UserAgent.FirstOrDefault(),
             viewer);
         return profiles.GetPublicAsync(slug, visitor, countView, ct);
+    }
+
+    /// <summary>A short-lived link to the profile song when it is a NAS song, no sign-in needed.</summary>
+    [AllowAnonymous]
+    [HttpGet("api/profiles/{slug}/song/stream-url")]
+    [EnableRateLimiting("public")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public async Task<LibraryStreamDto> SongStreamUrl(string slug, CancellationToken ct)
+    {
+        var songId = await profiles.GetPublicNasSongIdAsync(slug, ct);
+        return nasLinks.Create(songId) with { Title = await navidrome.TryGetSongTitleAsync(songId, ct) };
     }
 
     /// <summary>Report someone's profile or account to the admins (spam, abuse...). One open report per account.</summary>
