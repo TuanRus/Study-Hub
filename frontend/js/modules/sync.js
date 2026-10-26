@@ -8,7 +8,7 @@ import { getStorageData } from '../utils/storage.js';
 import { showToast } from '../utils/toast.js';
 import { FOCUS_LOG_KEY, loadRemoteFocus, clearRemoteFocus } from '../utils/focusLog.js';
 import { TODOS_STORAGE_KEY, loadRemoteTodos, clearRemoteTodos } from './todo.js';
-import { MUSIC_STORAGE_KEY, loadRemoteMusic, clearRemoteMusic } from './music.js';
+import { MUSIC_STORAGE_KEY, PLAYLISTS_STORAGE_KEY, loadRemoteMusic, clearRemoteMusic } from './music.js';
 import { PROFILE_KEY, loadRemoteProfile, clearRemoteProfile } from './profile.js';
 import { loadRemotePomodoroSettings, clearRemotePomodoroSettings } from './pomodoro.js';
 import { remindDueTasks } from './deadlines.js';
@@ -72,14 +72,18 @@ function localData() {
     const music = getStorageData(MUSIC_STORAGE_KEY, []);
     const focusLog = getStorageData(FOCUS_LOG_KEY, {});
     const profile = getStorageData(PROFILE_KEY, null);
-    return { todos, music, focusLog, profile };
+    const playlists = getStorageData(PLAYLISTS_STORAGE_KEY, [])
+        .filter(p => p && p.name && Array.isArray(p.tracks))
+        .map(p => ({ name: p.name, music: p.tracks }));
+    return { todos, music, focusLog, profile, playlists };
 }
 
-function describe({ todos, music, focusLog, profile }) {
+function describe({ todos, music, focusLog, profile, playlists }) {
     const parts = [];
     const days = Object.keys(focusLog).length;
     if (todos.length) parts.push(`${todos.length} task${todos.length > 1 ? 's' : ''}`);
     if (music.length) parts.push(`${music.length} saved song${music.length > 1 ? 's' : ''}`);
+    if (playlists.length) parts.push(`${playlists.length} playlist${playlists.length > 1 ? 's' : ''}`);
     if (days) parts.push(`${days} day${days > 1 ? 's' : ''} of focus history`);
     if (profile) parts.push('your About profile');
     return parts;
@@ -116,7 +120,8 @@ function offerLocalImport() {
             const result = await api('/import/local', { method: 'POST', body: data });
             close('done');
             const songs = result.tracksImported;
-            showToast(`Uploaded ${result.tasksImported} tasks, ${songs} songs, ${result.focusSessionsImported} focus sessions` +
+            const lists = result.playlistsImported ? `, ${result.playlistsImported} playlists` : '';
+            showToast(`Uploaded ${result.tasksImported} tasks, ${songs} songs${lists}, ${result.focusSessionsImported} focus sessions` +
                 (result.profileImported ? ' and your profile.' : '.'), 'success', 5000);
             await startSync({ offerImport: false });
         } catch (err) {

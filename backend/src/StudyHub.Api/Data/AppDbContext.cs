@@ -10,6 +10,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
 {
     public DbSet<User> Users => Set<User>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
+    public DbSet<PasswordResetCode> PasswordResetCodes => Set<PasswordResetCode>();
+    public DbSet<IpBan> IpBans => Set<IpBan>();
+    public DbSet<AbuseSetting> AbuseSettings => Set<AbuseSetting>();
+    public DbSet<UserReport> UserReports => Set<UserReport>();
     public DbSet<StudyTask> Tasks => Set<StudyTask>();
     public DbSet<PomodoroSettings> PomodoroSettings => Set<PomodoroSettings>();
     public DbSet<FocusSession> FocusSessions => Set<FocusSession>();
@@ -37,6 +41,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(u => u.TimeZone).HasMaxLength(64);
             e.HasIndex(u => u.Username).IsUnique();
             e.HasIndex(u => u.Email).IsUnique();
+            e.Property(u => u.FlagReason).HasMaxLength(200);
+            e.Property(u => u.RegisterIp).HasMaxLength(45);
+            e.Property(u => u.LastIp).HasMaxLength(45);
             e.Property(u => u.Role).HasDefaultValue(UserRole.User).HasSentinel(UserRole.User);
             e.HasOne(u => u.PomodoroSettings).WithOne(s => s.User)
                 .HasForeignKey<PomodoroSettings>(s => s.UserId).OnDelete(DeleteBehavior.Cascade);
@@ -47,6 +54,38 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(t => t.TokenHash).HasMaxLength(64).IsRequired();
             e.HasIndex(t => t.TokenHash).IsUnique();
             e.HasOne(t => t.User).WithMany(u => u.RefreshTokens).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<IpBan>(e =>
+        {
+            e.Property(x => x.Ip).HasMaxLength(45).IsRequired();
+            e.HasIndex(x => x.Ip).IsUnique();
+            e.Property(x => x.Reason).HasMaxLength(200);
+            e.Property(x => x.Username).HasMaxLength(32);
+            e.Property(x => x.BannedBy).HasMaxLength(32);
+        });
+
+        b.Entity<AbuseSetting>(e =>
+        {
+            e.Property(x => x.Id).ValueGeneratedNever();
+            e.Property(x => x.UpdatedBy).HasMaxLength(32);
+        });
+
+        b.Entity<UserReport>(e =>
+        {
+            e.Property(r => r.Details).HasMaxLength(500);
+            e.Property(r => r.HandledBy).HasMaxLength(32);
+            e.HasIndex(r => new { r.ReportedUserId, r.Status });
+            e.HasIndex(r => new { r.ReporterId, r.CreatedAt });
+            e.HasOne(r => r.ReportedUser).WithMany().HasForeignKey(r => r.ReportedUserId).OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(r => r.Reporter).WithMany().HasForeignKey(r => r.ReporterId).OnDelete(DeleteBehavior.Cascade);
+        });
+
+        b.Entity<PasswordResetCode>(e =>
+        {
+            e.Property(c => c.CodeHash).HasMaxLength(64).IsRequired();
+            e.HasIndex(c => c.UserId);
+            e.HasOne(c => c.User).WithMany().HasForeignKey(c => c.UserId).OnDelete(DeleteBehavior.Cascade);
         });
 
         b.Entity<StudyTask>(e =>
@@ -72,6 +111,8 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
         b.Entity<Playlist>(e =>
         {
             e.Property(p => p.Name).HasMaxLength(100).IsRequired();
+            e.Property(p => p.ShareCode).HasMaxLength(16);
+            e.HasIndex(p => p.ShareCode).IsUnique();
             e.HasOne(p => p.User).WithMany(u => u.Playlists).OnDelete(DeleteBehavior.Cascade);
         });
 
@@ -94,6 +135,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options) : DbContext(op
             e.Property(p => p.AvatarUrl).HasMaxLength(Profile.MaxAvatarLength);
             e.Property(p => p.Bio).HasMaxLength(400);
             e.Property(p => p.Location).HasMaxLength(40);
+            e.Property(p => p.Role).HasMaxLength(40);
             e.Property(p => p.Background).HasMaxLength(20);
             e.Property(p => p.BackgroundUrl).HasMaxLength(500);
             e.Property(p => p.Effect).HasMaxLength(20);

@@ -6,7 +6,7 @@ using StudyHub.Api.Entities;
 
 namespace StudyHub.Api.Services;
 
-public class TaskService(AppDbContext db)
+public class TaskService(AppDbContext db, AbuseSettings abuse)
 {
     private const int MaxCalendarDays = 366;
 
@@ -94,11 +94,36 @@ public class TaskService(AppDbContext db)
 
     public async Task<TaskDto> CreateAsync(Guid userId, SaveTaskRequest req, CancellationToken ct)
     {
+        await CheckAbuseAsync(userId, ct);
         var task = new StudyTask { UserId = userId };
         Apply(task, req);
         db.Tasks.Add(task);
         await db.SaveChangesAsync(ct);
         return task.ToDto((await ClockAsync(userId, null, ct)).IsOverdue(task));
+    }
+
+    // VI: Đếm task tạo trong 24 giờ qua: vượt giới hạn thì từ chối; tới ngưỡng thì đánh dấu sao (chỉ user thường).
+    //     Sau khi admin gỡ sao, chỉ task tạo sau lúc đó mới tính để gắn sao lại.
+    // EN: Counts tasks created in the last 24 hours: past the cap the request is refused; at the threshold the account
+    //     gets starred (regular users only). After an admin removes the star, only tasks created since then count.
+    private async Task CheckAbuseAsync(Guid userId, CancellationToken ct)
+    {
+        var limits = abuse.Current;
+        if (limits.SuspiciousTasksPerDay <= 0 && limits.MaxTasksPerDay <= 0) return;
+        var since = DateTime.UtcNow.AddDays(-1);
+        var recent = await db.Tasks.CountAsync(t => t.UserId == userId && t.CreatedAt >= since, ct);
+
+        if (limits.MaxTasksPerDay > 0 && recent >= limits.MaxTasksPerDay)
+            throw new AppException(StatusCodes.Status429TooManyRequests, "Too many tasks",
+                $"You can create up to {limits.MaxTasksPerDay} tasks per day. Try again later.");
+
+        if (limits.SuspiciousTasksPerDay <= 0 || recent + 1 < limits.SuspiciousTasksPerDay) return;
+        var cleared = await db.Users.Where(u => u.Id == userId).Select(u => u.FlagClearedAt).FirstAsync(ct);
+        var counted = cleared > since
+            ? await db.Tasks.CountAsync(t => t.UserId == userId && t.CreatedAt > cleared, ct) + 1
+            : recent + 1;
+        if (counted >= limits.SuspiciousTasksPerDay)
+            await AbuseSettings.StarAsync(db, userId, $"Auto: {counted} tasks in 24 hours", ct);
     }
 
     public async Task<TaskDto> UpdateAsync(Guid userId, Guid id, SaveTaskRequest req, CancellationToken ct)

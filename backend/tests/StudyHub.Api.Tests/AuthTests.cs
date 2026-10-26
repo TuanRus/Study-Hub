@@ -31,6 +31,26 @@ public class AuthTests(StudyHubFactory factory) : IClassFixture<StudyHubFactory>
     }
 
     [Fact]
+    public async Task Duplicate_email_is_rejected_including_gmail_variants()
+    {
+        var client = factory.CreateClient();
+        var first = await client.PostAsJsonAsync("/api/auth/register", new RegisterRequest("gina", "Gina.Test@gmail.com", "password123"));
+        Assert.Equal(HttpStatusCode.Created, first.StatusCode);
+
+        foreach (var (username, email) in new[] { ("gina2", "gina.test@gmail.com"), ("gina3", "ginatest@gmail.com"),
+                     ("gina4", "g.i.n.a.test+study@googlemail.com") })
+        {
+            var res = await client.PostAsJsonAsync("/api/auth/register", new RegisterRequest(username, email, "password123"));
+            Assert.Equal(HttpStatusCode.Conflict, res.StatusCode);
+        }
+
+        // VI: Ngoài Gmail thì dấu chấm là khác hộp thư. EN: Outside Gmail a dot means a different mailbox.
+        await client.PostAsJsonAsync("/api/auth/register", new RegisterRequest("hana", "hana.x@example.com", "password123"));
+        var other = await client.PostAsJsonAsync("/api/auth/register", new RegisterRequest("hana2", "hanax@example.com", "password123"));
+        Assert.Equal(HttpStatusCode.Created, other.StatusCode);
+    }
+
+    [Fact]
     public async Task Wrong_password_returns_401()
     {
         var client = factory.CreateClient();

@@ -16,9 +16,22 @@ public record TrackDto(
     int Position,
     DateTime AddedAt);
 
-public record PlaylistDto(Guid Id, string Name, bool IsDefault, int TrackCount, DateTime CreatedAt);
+public record PlaylistDto(Guid Id, string Name, bool IsDefault, int TrackCount, DateTime CreatedAt,
+    bool IsShared = false, string? ShareCode = null);
 
-public record PlaylistDetailDto(Guid Id, string Name, bool IsDefault, DateTime CreatedAt, IReadOnlyList<TrackDto> Tracks);
+public record PlaylistDetailDto(Guid Id, string Name, bool IsDefault, DateTime CreatedAt, IReadOnlyList<TrackDto> Tracks,
+    bool IsShared = false, string? ShareCode = null);
+
+public record SharePlaylistRequest(bool IsShared);
+
+// VI: Playlist người khác chia sẻ. OwnerSlug = null khi chủ playlist không có hồ sơ công khai.
+// EN: A playlist someone shared. OwnerSlug = null when the owner has no public profile.
+public record SharedPlaylistDto(
+    string ShareCode,
+    string Name,
+    string OwnerName,
+    string? OwnerSlug,
+    IReadOnlyList<TrackDto> Tracks);
 
 public record SavePlaylistRequest([Required, StringLength(100, MinimumLength = 1)] string Name);
 

@@ -21,7 +21,8 @@ public record SaveProfileRequest(
     [RegularExpression("^#[0-9a-fA-F]{6}$", ErrorMessage = "AccentColor must look like #RRGGBB.")] string? AccentColor = null,
     [StringLength(500)] string? SongUrl = null,
     Dictionary<string, string>? Links = null,
-    bool IsPublic = true);
+    bool IsPublic = true,
+    [StringLength(40)] string? Role = null);
 
 // VI: Số liệu học tập hiện trên thẻ hồ sơ. EN: Study numbers shown on the profile card.
 public record ProfileStatsDto(
@@ -38,6 +39,7 @@ public record ProfileDto(
     string? AvatarUrl,
     string Bio,
     string? Location,
+    string? Role,
     IReadOnlyList<string> Badges,
     string Background,
     string? BackgroundUrl,
@@ -59,6 +61,7 @@ public record PublicProfileDto(
     string? AvatarUrl,
     string Bio,
     string? Location,
+    string? Role,
     IReadOnlyList<string> Badges,
     string Background,
     string? BackgroundUrl,

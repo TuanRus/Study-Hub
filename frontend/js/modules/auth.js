@@ -105,12 +105,14 @@ export function initAuth() {
                 authUsername.placeholder = 'Choose a username...';
                 authSubmitBtn.textContent = 'Sign Up';
                 registerOnlyFields.forEach(field => field.style.display = 'flex');
+                document.querySelectorAll('.login-only').forEach(el => el.hidden = true);
                 authEmail.setAttribute('required', 'true');
                 authConfirmPassword.setAttribute('required', 'true');
             } else {
                 authUsername.placeholder = 'Username or email...';
                 authSubmitBtn.textContent = 'Login';
                 registerOnlyFields.forEach(field => field.style.display = 'none');
+                document.querySelectorAll('.login-only').forEach(el => el.hidden = false);
                 authEmail.removeAttribute('required');
                 authConfirmPassword.removeAttribute('required');
             }
@@ -172,8 +174,13 @@ export function initAuth() {
                     return;
                 }
 
-                if (users[username]) {
+                // VI: Không trùng username (không phân biệt hoa thường) và không trùng email.
+                // EN: No duplicate username (case-insensitive) or email.
+                const taken = Object.entries(users);
+                if (taken.some(([name]) => name.toLowerCase() === username.toLowerCase())) {
                     authMessage.textContent = "Username already exists!";
+                } else if (email && taken.some(([, u]) => typeof u === 'object' && u.email?.toLowerCase() === email.toLowerCase())) {
+                    authMessage.textContent = "Email is already registered!";
                 } else {
                     users[username] = { password: password, email: email };
                     localStorage.setItem('studyhub_users', JSON.stringify(users));

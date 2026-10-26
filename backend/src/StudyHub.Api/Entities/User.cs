@@ -30,6 +30,19 @@ public class User
     // EN: Locked by an admin: cannot sign in, existing tokens are rejected right away.
     public bool IsDisabled { get; set; }
 
+    // VI: Admin đánh dấu sao: tài khoản đáng ngờ / lạm dụng hệ thống, kèm lý do. Chỉ để theo dõi, không tự khoá.
+    // EN: Starred by an admin: suspicious / abusive account, with a reason. Only a marker, it does not lock anything.
+    public bool IsFlagged { get; set; }
+    public string? FlagReason { get; set; }
+    public DateTime? FlaggedAt { get; set; }
+    // VI: Lúc admin gỡ sao. Task và báo cáo trước mốc này không còn tính để tự gắn sao lại.
+    // EN: When an admin removed the star. Tasks and reports before this no longer count towards an automatic star.
+    public DateTime? FlagClearedAt { get; set; }
+
+    // VI: IP lúc đăng ký và lần đăng nhập gần nhất, để admin ban IP. EN: IP at sign-up and at the last sign-in, so admins can ban it.
+    public string? RegisterIp { get; set; }
+    public string? LastIp { get; set; }
+
     public PomodoroSettings? PomodoroSettings { get; set; }
     public Profile? Profile { get; set; }
     public List<StudyTask> Tasks { get; set; } = [];

@@ -30,6 +30,11 @@ if (!config.GetSection("Admin:SuperAdmins").GetChildren().Any(c => !string.IsNul
     envAliases["Admin:SuperAdmins:0"] = config["SUPERADMIN_USERNAME"]!.Trim();
 if (string.IsNullOrWhiteSpace(config[PublicSite.ConfigKey]) && !string.IsNullOrWhiteSpace(config[PublicSite.EnvName]))
     envAliases[PublicSite.ConfigKey] = config[PublicSite.EnvName]!.Trim();
+// VI: SMTP_HOST → Smtp:Host... (gửi mã quên mật khẩu). EN: SMTP_HOST → Smtp:Host... (forgot-password emails).
+foreach (var (env, key) in new[] { ("SMTP_HOST", "Host"), ("SMTP_PORT", "Port"), ("SMTP_USERNAME", "Username"),
+             ("SMTP_PASSWORD", "Password"), ("SMTP_FROM", "From") })
+    if (string.IsNullOrWhiteSpace(config[$"{SmtpOptions.Section}:{key}"]) && !string.IsNullOrWhiteSpace(config[env]))
+        envAliases[$"{SmtpOptions.Section}:{key}"] = config[env]!.Trim();
 if (envAliases.Count > 0) config.AddInMemoryCollection(envAliases);
 
 // ---------- Database ----------
@@ -89,7 +94,14 @@ builder.Services.AddSingleton<TokenService>();
 
 // ---------- App services ----------
 builder.Services.AddScoped<AuthService>();
+builder.Services.AddScoped<PasswordResetService>();
+builder.Services.Configure<SmtpOptions>(config.GetSection(SmtpOptions.Section));
+builder.Services.AddSingleton<IEmailSender, SmtpEmailSender>();
 builder.Services.AddScoped<TaskService>();
+builder.Services.Configure<AbuseOptions>(config.GetSection(AbuseOptions.Section));
+builder.Services.AddSingleton<IpBanList>();
+builder.Services.AddSingleton<AbuseSettings>();
+builder.Services.AddScoped<ReportService>();
 builder.Services.AddScoped<PomodoroService>();
 builder.Services.AddScoped<StatsService>();
 builder.Services.AddScoped<PlaylistService>();
@@ -163,10 +175,14 @@ using (var scope = app.Services.CreateScope())
     var promoted = await bootstrap.PromoteConfiguredSuperAdminsAsync(db);
     if (promoted > 0) app.Logger.LogInformation("Promoted {Count} configured super admin account(s).", promoted);
     await bootstrap.CreateMissingSuperAdminsAsync(db, scope.ServiceProvider.GetRequiredService<IPasswordHasher<User>>(), app.Logger);
+    await app.Services.GetRequiredService<IpBanList>().ReloadAsync(db);
+    await app.Services.GetRequiredService<AbuseSettings>().LoadAsync(db);
 }
 
 // VI: Không thêm lần nữa nếu ASP.NET đã tự thêm. EN: Do not add it twice when ASP.NET already did.
 if (behindProxy && !builtInForwardedHeaders) app.UseForwardedHeaders();
+// VI: Sau forwarded headers để thấy IP thật của người dùng. EN: After forwarded headers so it sees the real client IP.
+app.UseMiddleware<IpBanMiddleware>();
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();

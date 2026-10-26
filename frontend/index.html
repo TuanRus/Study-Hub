@@ -97,18 +97,22 @@
                     <button class="icon-btn icon-btn-sm" id="play-music-btn" title="Play">
                         <i class="ph-fill ph-play"></i>
                     </button>
-                    <button class="icon-btn icon-btn-sm" id="save-music-btn" title="Save to favorites">
+                    <button class="icon-btn icon-btn-sm" id="save-music-btn" title="Save to a playlist">
                         <i class="ph ph-heart"></i>
                     </button>
-                    <button class="icon-btn icon-btn-sm" id="music-library-btn" title="Saved music" aria-expanded="false" aria-controls="music-library">
+                    <button class="icon-btn icon-btn-sm" id="music-library-btn" title="Playlists" aria-expanded="false" aria-controls="music-library">
                         <i class="ph ph-playlist"></i>
                     </button>
 
                     <div class="music-library" id="music-library" hidden>
                         <div class="music-library-head">
-                            <h3><i class="ph ph-music-notes"></i> Saved music</h3>
+                            <button type="button" class="icon-btn icon-btn-xs" id="music-library-back" title="All playlists" aria-label="All playlists" hidden>
+                                <i class="ph-bold ph-caret-left"></i>
+                            </button>
+                            <h3 id="music-library-title"><i class="ph ph-playlist"></i> Playlists</h3>
+                            <div class="music-library-actions" id="music-library-actions"></div>
                         </div>
-                        <ul id="favorite-music-list" class="music-list"></ul>
+                        <div id="music-library-body"></div>
                     </div>
                 </div>
 
@@ -219,9 +223,6 @@
                                 </button>
                                 <button class="icon-btn icon-btn-lg" id="pomo-start-pause" title="Start / Pause (Space)" data-space-target="pomodoro">
                                     <i class="ph-fill ph-play"></i>
-                                </button>
-                                <button class="icon-btn" id="pomo-skip" title="Skip to next phase">
-                                    <i class="ph-fill ph-skip-forward"></i>
                                 </button>
                             </div>
 
@@ -416,6 +417,9 @@
                         <button class="profile-edit-btn" id="profile-edit-btn" title="Edit profile">
                             <i class="ph ph-pencil-simple"></i> Edit
                         </button>
+                        <button class="profile-edit-btn profile-report-btn" id="profile-report-btn" title="Report this profile" hidden>
+                            <i class="ph ph-flag"></i> Report
+                        </button>
 
                         <div class="profile-card" id="profile-card">
                             <div class="profile-avatar-wrap">
@@ -424,6 +428,7 @@
                             </div>
 
                             <h2 class="profile-name" id="profile-name">Test User</h2>
+                            <p class="profile-role" id="profile-role">Developer</p>
                             <div class="profile-handle">
                                 <span id="profile-handle">@testuser</span>
                                 <span class="profile-badges" id="profile-badges"></span>
@@ -463,13 +468,27 @@
                         <button class="btn btn-ghost btn-sm" id="admin-refresh"><i class="ph ph-arrow-clockwise"></i> Refresh</button>
                     </div>
 
-                    <div class="stat-cards admin-stats" id="admin-stats"></div>
-
                     <div class="admin-grid">
+                        <div class="admin-main">
                         <div class="card admin-users-card">
                             <div class="card-header">
                                 <h3><i class="ph ph-users"></i> Users <span class="chip-count" id="admin-user-total">0</span></h3>
-                                <input type="search" class="admin-search" id="admin-search" placeholder="Search username, email, profile..." aria-label="Search users">
+                                <div class="admin-filters">
+                                    <input type="search" class="admin-search" id="admin-search" placeholder="Search name, email, IP..." aria-label="Search users">
+                                    <select class="admin-select" id="admin-role-filter" aria-label="Filter by role">
+                                        <option value="">All roles</option>
+                                        <option value="User">Users</option>
+                                        <option value="Admin">Admins</option>
+                                        <option value="SuperAdmin">Super admins</option>
+                                    </select>
+                                    <select class="admin-select" id="admin-status-filter" aria-label="Filter by status">
+                                        <option value="">Any status</option>
+                                        <option value="Flagged">Starred</option>
+                                        <option value="Suspicious">Suspicious</option>
+                                        <option value="Disabled">Disabled</option>
+                                        <option value="Reported">Reported</option>
+                                    </select>
+                                </div>
                             </div>
                             <div class="admin-table-wrap">
                                 <table class="admin-table">
@@ -486,9 +505,45 @@
                             </div>
                         </div>
 
+                        <div class="card admin-reports-card">
+                            <div class="card-header">
+                                <h3><i class="ph ph-flag"></i> Reports <span class="chip-count" id="admin-report-open">0</span></h3>
+                                <select class="admin-select" id="admin-report-filter" aria-label="Filter reports">
+                                    <option value="Open">Open</option>
+                                    <option value="Resolved">Resolved</option>
+                                    <option value="Dismissed">Dismissed</option>
+                                    <option value="">All</option>
+                                </select>
+                            </div>
+                            <ul class="admin-bans admin-reports" id="admin-reports"></ul>
+                        </div>
+                        </div>
+
+                        <div class="admin-side">
                         <div class="card admin-server-card">
                             <div class="card-header"><h3><i class="ph ph-hard-drives"></i> Server</h3></div>
                             <dl class="admin-server" id="admin-server"></dl>
+                        </div>
+
+                        <div class="card admin-settings-card">
+                            <div class="card-header"><h3><i class="ph ph-sliders-horizontal"></i> Auto star</h3></div>
+                            <form class="admin-settings" id="admin-settings-form">
+                                <label><span>Star after</span><input type="number" id="abuse-star-tasks" min="0" max="10000" required><span>tasks in 24h</span></label>
+                                <label><span>Star after</span><input type="number" id="abuse-reports" min="0" max="100" required><span>reports</span></label>
+                                <label><span>Block after</span><input type="number" id="abuse-max-tasks" min="0" max="10000" required><span>tasks in 24h</span></label>
+                                <p class="admin-muted" id="abuse-settings-note">0 turns a rule off.</p>
+                                <button type="submit" class="btn btn-ghost btn-sm" id="abuse-settings-save"><i class="ph ph-floppy-disk"></i> Save</button>
+                            </form>
+                        </div>
+
+                        <div class="card admin-bans-card">
+                            <div class="card-header"><h3><i class="ph ph-prohibit"></i> Banned IPs <span class="chip-count" id="admin-ban-total">0</span></h3></div>
+                            <form class="admin-ban-form" id="admin-ban-form">
+                                <input type="text" class="admin-search" id="admin-ban-ip" placeholder="IP address" required maxlength="45" aria-label="IP address to ban" autocomplete="off">
+                                <button type="submit" class="btn btn-ghost btn-sm"><i class="ph ph-prohibit"></i> Ban</button>
+                            </form>
+                            <ul class="admin-bans" id="admin-bans"></ul>
+                        </div>
                         </div>
                     </div>
                 </section>
@@ -497,8 +552,23 @@
             <!-- Floating music player -->
             <div class="music-player-container" id="music-player-container" aria-live="polite">
                 <div class="music-player-head">
-                    <span><i class="ph-fill ph-music-notes"></i> Now playing</span>
-                    <div>
+                    <div class="music-now">
+                        <i class="ph-fill ph-music-notes"></i>
+                        <div class="music-now-text">
+                            <strong id="music-now-title">Now playing</strong>
+                            <small id="music-now-sub" hidden></small>
+                        </div>
+                    </div>
+                    <div class="music-player-controls">
+                        <button class="icon-btn icon-btn-xs" id="music-prev-btn" title="Previous" aria-label="Previous" hidden>
+                            <i class="ph-fill ph-skip-back"></i>
+                        </button>
+                        <button class="icon-btn icon-btn-xs" id="music-next-btn" title="Next" aria-label="Next" hidden>
+                            <i class="ph-fill ph-skip-forward"></i>
+                        </button>
+                        <button class="icon-btn icon-btn-xs" id="music-repeat-btn" title="Repeat playlist" aria-label="Repeat playlist" aria-pressed="false" hidden>
+                            <i class="ph-bold ph-repeat"></i>
+                        </button>
                         <button class="icon-btn icon-btn-xs" id="music-minimize-btn" title="Minimize">
                             <i class="ph-bold ph-minus"></i>
                         </button>
@@ -537,9 +607,34 @@
                     </div>
                     <label class="input-group span-2"><span>Bio (one line per message, they type out in turn)</span><textarea id="pf-bio" rows="3" maxlength="400"></textarea></label>
                     <label class="input-group"><span>Location</span><input type="text" id="pf-location" maxlength="40"></label>
-                    <label class="input-group"><span>Badges</span>
+                    <label class="input-group"><span>Role</span><input type="text" id="pf-role" maxlength="40" list="pf-role-list" placeholder="e.g. Developer"></label>
+                    <datalist id="pf-role-list">
+                        <option value="Student"></option>
+                        <option value="Developer"></option>
+                        <option value="Frontend Developer"></option>
+                        <option value="Backend Developer"></option>
+                        <option value="Fullstack Developer"></option>
+                        <option value="Mobile Developer"></option>
+                        <option value="Game Developer"></option>
+                        <option value="Cloud Engineer"></option>
+                        <option value="DevOps Engineer"></option>
+                        <option value="Data Engineer"></option>
+                        <option value="Data Scientist"></option>
+                        <option value="AI / ML Engineer"></option>
+                        <option value="Security Engineer"></option>
+                        <option value="QA Engineer"></option>
+                        <option value="UI/UX Designer"></option>
+                    </datalist>
+                    <div class="input-group span-2"><span>Badges <small class="badge-count" id="pf-badges-count"></small></span>
                         <div class="badge-picker" id="pf-badges"></div>
-                    </label>
+                    </div>
+                    <div class="input-group span-2"><span>Visibility</span>
+                        <label class="switch-field" id="pf-public-wrap">
+                            <input type="checkbox" id="pf-public" checked>
+                            <span class="switch" aria-hidden="true"></span>
+                            <span class="switch-text" id="pf-public-text">Public: anyone with the link can view</span>
+                        </label>
+                    </div>
                 </div>
                 <p class="profile-public-link" id="pf-public-link"></p>
 
@@ -571,7 +666,6 @@
             </div>
 
             <div class="modal-actions">
-                <button type="button" class="btn btn-ghost btn-danger-text" id="profile-reset-btn"><i class="ph ph-arrow-counter-clockwise"></i> Reset</button>
                 <button type="button" class="btn btn-ghost" id="profile-password-btn" hidden><i class="ph ph-lock-key"></i> Change password</button>
                 <button type="submit" class="btn btn-primary">Save profile</button>
             </div>
@@ -601,6 +695,87 @@
             <div class="modal-actions">
                 <button type="button" class="btn btn-ghost" id="password-cancel-btn">Cancel</button>
                 <button type="submit" class="btn btn-primary">Change password</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Report a public profile -->
+    <div id="report-modal" class="modal-overlay hidden">
+        <form class="modal-content" id="report-form">
+            <div class="task-modal-head">
+                <h4><i class="ph-fill ph-flag"></i> <span id="report-title">Report</span></h4>
+                <button type="button" class="icon-btn icon-btn-sm" data-close title="Close"><i class="ph-bold ph-x"></i></button>
+            </div>
+            <p>Admins will review this account. Your name is only shown to admins.</p>
+            <div class="input-group">
+                <label for="report-reason">Reason</label>
+                <select id="report-reason" class="admin-select">
+                    <option value="Spam">Spam or junk content</option>
+                    <option value="Abuse">Abusing the system</option>
+                    <option value="Inappropriate">Inappropriate profile</option>
+                    <option value="Impersonation">Pretending to be someone else</option>
+                    <option value="Other">Something else</option>
+                </select>
+            </div>
+            <div class="input-group">
+                <label for="report-details">Details <span class="label-hint">(optional)</span></label>
+                <textarea id="report-details" maxlength="500" rows="3" placeholder="What did you see?"></textarea>
+            </div>
+            <p class="auth-message" id="report-message" role="alert"></p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+                <button type="submit" class="btn btn-primary" id="report-submit">Send report</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Admin: star / ban with a reason -->
+    <div id="admin-reason-modal" class="modal-overlay hidden">
+        <form class="modal-content" id="admin-reason-form">
+            <div class="task-modal-head">
+                <h4 id="admin-reason-title"><i class="ph-fill ph-star"></i> Star account</h4>
+                <button type="button" class="icon-btn icon-btn-sm" data-close title="Close"><i class="ph-bold ph-x"></i></button>
+            </div>
+            <p id="admin-reason-text"></p>
+            <div class="input-group">
+                <label for="admin-reason">Reason <span class="label-hint">(optional)</span></label>
+                <input type="text" id="admin-reason" maxlength="200" placeholder="e.g. hundreds of junk tasks" autocomplete="off">
+            </div>
+            <label class="admin-check" id="admin-reason-disable-wrap"><input type="checkbox" id="admin-reason-disable" checked> Also disable the account</label>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+                <button type="submit" class="btn btn-primary" id="admin-reason-submit">Star</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Admin: delete junk data -->
+    <div id="admin-cleanup-modal" class="modal-overlay hidden">
+        <form class="modal-content" id="admin-cleanup-form">
+            <div class="task-modal-head">
+                <h4><i class="ph-fill ph-broom"></i> Clean up junk data</h4>
+                <button type="button" class="icon-btn icon-btn-sm" data-close title="Close"><i class="ph-bold ph-x"></i></button>
+            </div>
+            <p id="admin-cleanup-text"></p>
+            <div class="admin-checks">
+                <label class="admin-check"><input type="checkbox" name="tasks" checked> Tasks <span class="admin-muted" id="admin-cleanup-tasks"></span></label>
+                <label class="admin-check"><input type="checkbox" name="focusSessions"> Focus sessions <span class="admin-muted" id="admin-cleanup-sessions"></span></label>
+                <label class="admin-check"><input type="checkbox" name="tracks"> Music tracks</label>
+                <label class="admin-check"><input type="checkbox" name="profile"> Profile text, links, avatar and badges</label>
+            </div>
+            <div class="input-group">
+                <label for="admin-cleanup-range">Created in</label>
+                <select id="admin-cleanup-range" class="admin-select">
+                    <option value="24">the last 24 hours</option>
+                    <option value="168">the last 7 days</option>
+                    <option value="720">the last 30 days</option>
+                    <option value="">any time</option>
+                </select>
+            </div>
+            <p class="admin-note"><i class="ph ph-warning"></i> Deleted data cannot be restored. The account itself is kept.</p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" data-close>Cancel</button>
+                <button type="submit" class="btn btn-primary btn-danger-fill">Delete selected</button>
             </div>
         </form>
     </div>
@@ -650,16 +825,73 @@
     <!-- Name a saved music link -->
     <div id="music-name-modal" class="modal-overlay hidden">
         <form class="modal-content" id="music-name-form">
-            <h4><i class="ph-fill ph-heart"></i> Save to favorites</h4>
+            <h4><i class="ph-fill ph-heart"></i> Save to a playlist</h4>
             <div class="input-group">
-                <label for="music-name-input">Name</label>
+                <label for="music-name-input">Song name</label>
                 <input type="text" id="music-name-input" placeholder="e.g. Lofi beats" required maxlength="80">
+            </div>
+            <div class="input-group">
+                <label for="music-playlist-select">Playlist</label>
+                <select id="music-playlist-select"></select>
+            </div>
+            <div class="input-group" hidden>
+                <label for="music-new-playlist-input">New playlist name</label>
+                <input type="text" id="music-new-playlist-input" placeholder="e.g. Deep focus" maxlength="100">
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn btn-ghost" id="music-name-cancel">Cancel</button>
                 <button type="submit" class="btn btn-primary">Save</button>
             </div>
         </form>
+    </div>
+
+    <!-- Create or rename a playlist -->
+    <div id="playlist-name-modal" class="modal-overlay hidden">
+        <form class="modal-content" id="playlist-name-form">
+            <h4><i class="ph-fill ph-playlist"></i> <span id="playlist-name-heading">New playlist</span></h4>
+            <div class="input-group">
+                <label for="playlist-name-input">Name</label>
+                <input type="text" id="playlist-name-input" placeholder="e.g. Deep focus" required maxlength="100">
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" id="playlist-name-cancel">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+
+    <!-- Share a playlist by link -->
+    <div id="playlist-share-modal" class="modal-overlay hidden">
+        <div class="modal-content" role="dialog" aria-labelledby="playlist-share-heading">
+            <h4 id="playlist-share-heading"><i class="ph-fill ph-share-network"></i> <span>Share <strong id="playlist-share-name"></strong></span></h4>
+            <label class="switch-field">
+                <input type="checkbox" id="playlist-share-toggle">
+                <span class="switch" aria-hidden="true"></span>
+                <span class="switch-text" id="playlist-share-text">Private: only you can see it</span>
+            </label>
+            <div class="share-link-row" id="playlist-share-link-row" hidden>
+                <input type="text" id="playlist-share-link" readonly aria-label="Share link">
+                <button type="button" class="btn btn-primary btn-sm" id="playlist-share-copy"><i class="ph ph-copy"></i> Copy</button>
+            </div>
+            <p class="share-hint">People with the link can listen and save a copy, but can't change your playlist. Turning sharing off breaks the old link.</p>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" id="playlist-share-close">Done</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- A playlist someone shared (/?playlist=code) -->
+    <div id="shared-playlist-modal" class="modal-overlay hidden">
+        <div class="modal-content shared-playlist" role="dialog" aria-labelledby="shared-playlist-name">
+            <h4><i class="ph-fill ph-playlist"></i> <span id="shared-playlist-name"></span></h4>
+            <p id="shared-playlist-owner"></p>
+            <ul class="music-list shared-playlist-tracks" id="shared-playlist-tracks"></ul>
+            <div class="modal-actions">
+                <button type="button" class="btn btn-ghost" id="shared-playlist-close">Close</button>
+                <button type="button" class="btn btn-ghost" id="shared-playlist-save"><i class="ph ph-plus"></i> Save</button>
+                <button type="button" class="btn btn-primary" id="shared-playlist-play"><i class="ph-fill ph-play"></i> Play all</button>
+            </div>
+        </div>
     </div>
 
     <!-- Move local data to the account -->
@@ -698,6 +930,7 @@
                 <div class="input-group">
                     <label for="auth-password">Password</label>
                     <input type="password" id="auth-password" required placeholder="Enter password..." autocomplete="current-password">
+                    <button type="button" class="text-btn auth-forgot-link login-only" id="auth-forgot-btn">Forgot password?</button>
                 </div>
                 <div class="input-group register-only" style="display: none;">
                     <label for="auth-confirm-password">Confirm Password</label>
@@ -705,6 +938,38 @@
                 </div>
                 <p id="auth-message" class="auth-message"></p>
                 <button type="submit" class="btn btn-primary btn-block" id="auth-submit-btn">Login</button>
+            </form>
+
+            <!-- VI: Quên mật khẩu: gửi mã 6 số qua email rồi đặt mật khẩu mới. EN: Forgot password: email a 6-digit code, then set a new password. -->
+            <form id="forgot-form" class="auth-form" hidden novalidate>
+                <div class="forgot-head">
+                    <h4><i class="ph-fill ph-key"></i> Reset password</h4>
+                    <p class="forgot-hint" id="forgot-hint">Enter your account email. We will send you a 6-digit code.</p>
+                </div>
+                <div class="input-group">
+                    <label for="forgot-email">Email</label>
+                    <input type="email" id="forgot-email" placeholder="you@example.com" autocomplete="email" maxlength="256">
+                </div>
+                <div class="forgot-step-code" hidden>
+                    <div class="input-group">
+                        <label for="forgot-code">Code from the email</label>
+                        <input type="text" id="forgot-code" class="otp-input" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••">
+                    </div>
+                    <div class="input-group">
+                        <label for="forgot-new">New password</label>
+                        <input type="password" id="forgot-new" autocomplete="new-password" minlength="8" maxlength="100" placeholder="At least 8 characters">
+                    </div>
+                    <div class="input-group">
+                        <label for="forgot-confirm">Confirm new password</label>
+                        <input type="password" id="forgot-confirm" autocomplete="new-password" maxlength="100">
+                    </div>
+                </div>
+                <p id="forgot-message" class="auth-message" role="alert"></p>
+                <button type="submit" class="btn btn-primary btn-block" id="forgot-submit-btn">Send code</button>
+                <div class="forgot-links">
+                    <button type="button" class="text-btn" id="forgot-back-btn"><i class="ph ph-arrow-left"></i> Back to login</button>
+                    <button type="button" class="text-btn" id="forgot-resend-btn" hidden>Resend code</button>
+                </div>
             </form>
         </div>
     </div>

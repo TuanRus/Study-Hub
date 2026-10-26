@@ -4,7 +4,7 @@
 import { initAuth } from './modules/auth.js';
 import { initTodo, fetchTodos } from './modules/todo.js';
 import { initDeadlines, renderDeadlines } from './modules/deadlines.js';
-import { initMusic } from './modules/music.js';
+import { initMusic, openSharedPlaylist } from './modules/music.js';
 import { initPomodoro } from './modules/pomodoro.js';
 import { initStopwatch } from './modules/stopwatch.js';
 import { initTimer } from './modules/timer.js';
@@ -13,6 +13,8 @@ import { initProfile, openProfile, initPublicProfile } from './modules/profile.j
 import { bootSync } from './modules/sync.js';
 import { initAdmin, openAdmin, isAdmin } from './modules/admin.js';
 import { initAccount } from './modules/account.js';
+import { initForgotPassword } from './modules/forgotPassword.js';
+import { initReport } from './modules/report.js';
 import { currentUserName } from './utils/api.js';
 
 const VIEW_TITLES = {
@@ -42,6 +44,7 @@ function startPublicPage(slug) {
     initTheme();
     initMusic();
     initPublicProfile(slug);
+    initReport(slug);
 }
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -62,6 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initDashboard();
     initProfile();
     initAccount();
+    initForgotPassword();
     initAdmin();
     initTheme();
 
@@ -122,6 +126,14 @@ document.addEventListener('DOMContentLoaded', () => {
     if (initialView === 'admin') {
         window.addEventListener('studyhub:synced', () => { if (isAdmin()) navigateTo('admin'); }, { once: true });
     }
+    // [EN] Shared playlist link: /?playlist=code opens it on top of the app (visitors can play it without an account)
+    // [VN] Link playlist được chia sẻ: /?playlist=code mở playlist trên app (khách không cần tài khoản vẫn nghe được)
+    const sharedCode = new URLSearchParams(location.search).get('playlist');
+    if (sharedCode) {
+        history.replaceState(null, '', location.pathname + location.hash);
+        openSharedPlaylist(sharedCode);
+    }
+
     // [EN] Show the About menu item only when logged in
     // [VN] Chỉ hiện mục About trên menu khi đã đăng nhập
     function updateAboutNav() {

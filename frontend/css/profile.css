@@ -302,6 +302,21 @@ EN: guns.lol-style bio-link About page: animated background, glass card, glowing
     50% { opacity: 0.85; transform: scale(1) rotate(45deg); }
 }
 
+.profile-role {
+    padding: 3px 12px;
+    border: 1px solid color-mix(in srgb, var(--profile-accent) 35%, transparent);
+    border-radius: var(--radius-full);
+    background: color-mix(in srgb, var(--profile-accent) 14%, transparent);
+    color: var(--profile-text);
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+}
+
+.profile-role[hidden] {
+    display: none;
+}
+
 .profile-handle {
     display: flex;
     align-items: center;
@@ -329,34 +344,29 @@ EN: guns.lol-style bio-link About page: animated background, glass card, glowing
     filter: drop-shadow(0 0 4px color-mix(in srgb, var(--profile-accent) 60%, transparent));
 }
 
-/* Tooltips for badges and links */
-[data-tip] {
-    position: relative;
-}
-
-[data-tip]::after {
-    content: attr(data-tip);
-    position: absolute;
-    bottom: calc(100% + 8px);
-    left: 50%;
-    transform: translate(-50%, 4px);
-    padding: 4px 8px;
-    border-radius: 6px;
-    background: #111;
+/* VI: Tooltip đi theo chuột cho badge và link (vị trí đặt bằng JS). EN: Cursor tooltip for badges and links (placed by JS). */
+.cursor-tip {
+    position: fixed;
+    top: 0;
+    left: 0;
+    z-index: 1000;
+    padding: 4px 9px;
+    border-radius: 7px;
+    background: rgba(17, 17, 20, 0.92);
     color: #fff;
     font-size: 12px;
     font-weight: 600;
+    letter-spacing: 0.01em;
     white-space: nowrap;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+    backdrop-filter: blur(6px);
     opacity: 0;
     pointer-events: none;
-    transition: opacity 120ms ease, transform 120ms ease;
-    z-index: 5;
+    transition: opacity 100ms ease;
 }
 
-[data-tip]:hover::after,
-[data-tip]:focus-visible::after {
+.cursor-tip.visible {
     opacity: 1;
-    transform: translate(-50%, 0);
 }
 
 .profile-bio {
@@ -609,29 +619,129 @@ EN: guns.lol-style bio-link About page: animated background, glass card, glowing
     cursor: pointer;
 }
 
-.badge-picker {
+/* VI: Công tắc Công khai / Riêng tư. EN: Public / private switch. */
+.switch-field {
     display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
+    align-items: center;
+    gap: 10px;
+    min-height: 42px;
+    padding: 0 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+    cursor: pointer;
+}
+
+.switch-field input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.switch {
+    position: relative;
+    flex: none;
+    width: 34px;
+    height: 20px;
+    border-radius: var(--radius-full);
+    background: var(--border-strong);
+    transition: background var(--transition);
+}
+
+.switch::after {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+    transition: transform var(--transition);
+}
+
+.switch-field input:checked + .switch {
+    background: var(--accent);
+}
+
+.switch-field input:checked + .switch::after {
+    transform: translateX(14px);
+}
+
+.switch-field input:focus-visible + .switch {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.switch-text {
+    overflow: hidden;
+    font-size: 13px;
+    color: var(--text-muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.switch-field.disabled {
+    cursor: not-allowed;
+    opacity: 0.6;
+}
+
+.badge-count {
+    margin-left: auto;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-faint);
+}
+
+.badge-picker {
+    display: grid;
+    grid-template-columns: repeat(10, 1fr);
+    gap: 2px;
+    padding: 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
 }
 
 .badge-option {
     display: grid;
     place-items: center;
-    width: 36px;
-    height: 36px;
+    height: 34px;
+    min-width: 30px;
+    border: none;
     border-radius: var(--radius-sm);
-    border: 1px solid var(--border);
-    background: var(--surface-2);
+    background: transparent;
     color: var(--text-faint);
-    font-size: 18px;
-    transition: all var(--transition);
+    font-size: 16px;
+    cursor: pointer;
+    transition: background var(--transition), color var(--transition), transform var(--transition);
+}
+
+.badge-option:hover {
+    background: var(--surface-3);
+    color: var(--text-muted);
+}
+
+.badge-option:active {
+    transform: scale(0.92);
+}
+
+.badge-option:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+}
+
+@media (max-width: 480px) {
+    .badge-picker {
+        grid-template-columns: repeat(auto-fill, minmax(34px, 1fr));
+    }
 }
 
 .badge-option.active {
     background: var(--accent-soft);
-    border-color: var(--accent);
     color: var(--accent);
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 /* VI: Tắt hết chuyển động khi người dùng bật "giảm chuyển động". EN: Turn motion off for prefers-reduced-motion. */
@@ -696,6 +806,15 @@ body.public-mode .sidebar,
 body.public-mode .header-bar,
 body.public-mode .profile-edit-btn {
     display: none;
+}
+
+/* VI: Nút Report chỉ có ở trang công khai, nằm chỗ nút Edit. EN: The Report button only exists on the public page, where Edit would be. */
+.profile-report-btn {
+    display: none;
+}
+
+body.public-mode .profile-report-btn:not([hidden]) {
+    display: inline-flex;
 }
 
 body.public-mode .view-scroll {

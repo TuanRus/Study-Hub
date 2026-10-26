@@ -8,7 +8,8 @@ public record ImportLocalRequest(
     List<LocalTodo>? Todos,
     List<LocalMusic>? Music,
     Dictionary<string, LocalFocusDay>? FocusLog,
-    LocalProfile? Profile = null);
+    LocalProfile? Profile = null,
+    List<LocalPlaylist>? Playlists = null);
 
 // VI: deadline = "YYYY-MM-DD" (ngày địa phương), time = "HH:MM" hoặc "" (cả ngày), priority = "high" | "medium" | "low".
 // EN: deadline = "YYYY-MM-DD" (local date), time = "HH:MM" or "" (all day), priority = "high" | "medium" | "low".
@@ -21,6 +22,10 @@ public record LocalTodo(
     string? Priority = null);
 
 public record LocalMusic(string? Name, string? Url, string? Type = null);
+
+// VI: Playlist tự tạo khi chưa đăng nhập (studyhub_playlists). Favorites vẫn nằm ở Music.
+// EN: A playlist made while logged out (studyhub_playlists). Favorites still come in Music.
+public record LocalPlaylist(string? Name, List<LocalMusic>? Music);
 
 public record LocalFocusDay(int Sessions, int Minutes);
 
@@ -38,11 +43,13 @@ public record LocalProfile(
     string? Effect,
     string? Accent,
     string? Song,
-    Dictionary<string, string>? Links);
+    Dictionary<string, string>? Links,
+    string? Role = null);
 
 public record ImportResultDto(
     int TasksImported,
     int TracksImported,
     int TracksSkipped,
     int FocusSessionsImported,
-    bool ProfileImported = false);
+    bool ProfileImported = false,
+    int PlaylistsImported = 0);

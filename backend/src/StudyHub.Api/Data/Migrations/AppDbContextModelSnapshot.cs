@@ -17,6 +17,32 @@ namespace StudyHub.Api.Data.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.13");
 
+            modelBuilder.Entity("StudyHub.Api.Entities.AbuseSetting", b =>
+                {
+                    b.Property<int>("Id")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("MaxTasksPerDay")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("ReportsToFlag")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("SuspiciousTasksPerDay")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AbuseSettings");
+                });
+
             modelBuilder.Entity("StudyHub.Api.Entities.FocusSession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -55,6 +81,71 @@ namespace StudyHub.Api.Data.Migrations
                     b.ToTable("FocusSessions");
                 });
 
+            modelBuilder.Entity("StudyHub.Api.Entities.IpBan", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("BannedBy")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Ip")
+                        .IsRequired()
+                        .HasMaxLength(45)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Username")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Ip")
+                        .IsUnique();
+
+                    b.ToTable("IpBans");
+                });
+
+            modelBuilder.Entity("StudyHub.Api.Entities.PasswordResetCode", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("FailedAttempts")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("PasswordResetCodes");
+                });
+
             modelBuilder.Entity("StudyHub.Api.Entities.Playlist", b =>
                 {
                     b.Property<Guid>("Id")
@@ -67,15 +158,25 @@ namespace StudyHub.Api.Data.Migrations
                     b.Property<bool>("IsDefault")
                         .HasColumnType("INTEGER");
 
+                    b.Property<bool>("IsShared")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ShareCode")
+                        .HasMaxLength(16)
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("ShareCode")
+                        .IsUnique();
 
                     b.HasIndex("UserId");
 
@@ -166,6 +267,10 @@ namespace StudyHub.Api.Data.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Location")
+                        .HasMaxLength(40)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Role")
                         .HasMaxLength(40)
                         .HasColumnType("TEXT");
 
@@ -377,14 +482,35 @@ namespace StudyHub.Api.Data.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("TEXT");
 
+                    b.Property<DateTime?>("FlagClearedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FlagReason")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("FlaggedAt")
+                        .HasColumnType("TEXT");
+
                     b.Property<bool>("IsDisabled")
                         .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsFlagged")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("LastIp")
+                        .HasMaxLength(45)
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTime?>("LastLoginAt")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RegisterIp")
+                        .HasMaxLength(45)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Role")
@@ -415,6 +541,51 @@ namespace StudyHub.Api.Data.Migrations
                     b.ToTable("Users");
                 });
 
+            modelBuilder.Entity("StudyHub.Api.Entities.UserReport", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Details")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("HandledAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HandledBy")
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Reason")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ReportedUserId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ReporterId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReportedUserId", "Status");
+
+                    b.HasIndex("ReporterId", "CreatedAt");
+
+                    b.ToTable("UserReports");
+                });
+
             modelBuilder.Entity("StudyHub.Api.Entities.FocusSession", b =>
                 {
                     b.HasOne("StudyHub.Api.Entities.StudyTask", "Task")
@@ -429,6 +600,17 @@ namespace StudyHub.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Task");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("StudyHub.Api.Entities.PasswordResetCode", b =>
+                {
+                    b.HasOne("StudyHub.Api.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("User");
                 });
@@ -508,6 +690,25 @@ namespace StudyHub.Api.Data.Migrations
                         .IsRequired();
 
                     b.Navigation("Playlist");
+                });
+
+            modelBuilder.Entity("StudyHub.Api.Entities.UserReport", b =>
+                {
+                    b.HasOne("StudyHub.Api.Entities.User", "ReportedUser")
+                        .WithMany()
+                        .HasForeignKey("ReportedUserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("StudyHub.Api.Entities.User", "Reporter")
+                        .WithMany()
+                        .HasForeignKey("ReporterId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ReportedUser");
+
+                    b.Navigation("Reporter");
                 });
 
             modelBuilder.Entity("StudyHub.Api.Entities.Playlist", b =>

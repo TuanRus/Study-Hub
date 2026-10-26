@@ -10,10 +10,10 @@ namespace StudyHub.Api.Services;
 
 public class AuthService(AppDbContext db, TokenService tokens, IPasswordHasher<User> hasher, AdminBootstrap admins)
 {
-    public async Task<AuthResponse> RegisterAsync(RegisterRequest req, CancellationToken ct)
+    public async Task<AuthResponse> RegisterAsync(RegisterRequest req, string? ip, CancellationToken ct)
     {
         var username = req.Username.Trim();
-        var email = req.Email.Trim().ToLowerInvariant();
+        var email = EmailAddresses.Normalize(req.Email);
 
         // VI: Username SuperAdmin trong cấu hình chỉ do server tạo lúc khởi động, không đăng ký công khai được.
         // EN: Configured SuperAdmin usernames are created by the server at start-up and cannot be signed up for.
@@ -21,7 +21,7 @@ public class AuthService(AppDbContext db, TokenService tokens, IPasswordHasher<U
             throw new ConflictException("Username is already taken.");
         if (await db.Users.AnyAsync(u => u.Username.ToLower() == username.ToLower(), ct))
             throw new ConflictException("Username is already taken.");
-        if (await db.Users.AnyAsync(u => u.Email == email, ct))
+        if (await EmailTakenAsync(email, ct))
             throw new ConflictException("Email is already registered.");
         if (req.TimeZone is not null && !TimeZones.IsValid(req.TimeZone))
             throw new BadRequestException($"Unknown time zone '{req.TimeZone}'.");
@@ -32,6 +32,7 @@ public class AuthService(AppDbContext db, TokenService tokens, IPasswordHasher<U
             Email = email,
             DisplayName = string.IsNullOrWhiteSpace(req.DisplayName) ? username : req.DisplayName.Trim(),
             TimeZone = req.TimeZone ?? "Asia/Ho_Chi_Minh",
+            RegisterIp = ip,
             PomodoroSettings = new PomodoroSettings()
         };
         user.PasswordHash = hasher.HashPassword(user, req.Password);
@@ -39,10 +40,10 @@ public class AuthService(AppDbContext db, TokenService tokens, IPasswordHasher<U
         user.Profile = await ProfileService.NewProfileAsync(db, user, ct);
 
         db.Users.Add(user);
-        return await IssueTokensAsync(user, ct);
+        return await IssueTokensAsync(user, ip, ct);
     }
 
-    public async Task<AuthResponse> LoginAsync(LoginRequest req, CancellationToken ct)
+    public async Task<AuthResponse> LoginAsync(LoginRequest req, string? ip, CancellationToken ct)
     {
         var key = req.UsernameOrEmail.Trim().ToLowerInvariant();
         var user = await db.Users.FirstOrDefaultAsync(u => u.Username.ToLower() == key || u.Email == key, ct);
@@ -60,10 +61,10 @@ public class AuthService(AppDbContext db, TokenService tokens, IPasswordHasher<U
         if (user.IsDisabled)
             throw new AppException(StatusCodes.Status403Forbidden, "Account disabled", "This account has been disabled by an admin.");
 
-        return await IssueTokensAsync(user, ct);
+        return await IssueTokensAsync(user, ip, ct);
     }
 
-    public async Task<AuthResponse> RefreshAsync(string refreshToken, CancellationToken ct)
+    public async Task<AuthResponse> RefreshAsync(string refreshToken, string? ip, CancellationToken ct)
     {
         var hash = TokenService.Hash(refreshToken);
         var stored = await db.RefreshTokens.Include(t => t.User)
@@ -85,7 +86,7 @@ public class AuthService(AppDbContext db, TokenService tokens, IPasswordHasher<U
             throw new UnauthorizedException("This account has been disabled.");
 
         stored.RevokedAt = DateTime.UtcNow;
-        return await IssueTokensAsync(stored.User, ct);
+        return await IssueTokensAsync(stored.User, ip, ct);
     }
 
     public async Task LogoutAsync(string refreshToken, CancellationToken ct)
@@ -128,6 +129,18 @@ public class AuthService(AppDbContext db, TokenService tokens, IPasswordHasher<U
         await RevokeAllAsync(userId, ct);
     }
 
+    // VI: Trùng email chính xác, hoặc cùng một hộp thư Gmail viết khác (dấu chấm, "+...").
+    // EN: Same email, or the same Gmail mailbox written differently (dots, "+...").
+    private async Task<bool> EmailTakenAsync(string email, CancellationToken ct)
+    {
+        if (await db.Users.AnyAsync(u => u.Email == email, ct)) return true;
+        if (!EmailAddresses.IsGmail(email)) return false;
+        var canonical = EmailAddresses.Canonical(email);
+        var gmails = await db.Users.Where(u => u.Email.EndsWith("@gmail.com") || u.Email.EndsWith("@googlemail.com"))
+            .Select(u => u.Email).ToListAsync(ct);
+        return gmails.Any(e => EmailAddresses.Canonical(e) == canonical);
+    }
+
     private async Task<User> FindUserAsync(Guid userId, CancellationToken ct) =>
         await db.Users.FindAsync([userId], ct) ?? throw new NotFoundException("User");
 
@@ -140,13 +153,14 @@ public class AuthService(AppDbContext db, TokenService tokens, IPasswordHasher<U
         await db.SaveChangesAsync(ct);
     }
 
-    private async Task<AuthResponse> IssueTokensAsync(User user, CancellationToken ct)
+    private async Task<AuthResponse> IssueTokensAsync(User user, string? ip, CancellationToken ct)
     {
         var (access, accessExpires) = tokens.CreateAccessToken(user);
         var (refresh, refreshHash, refreshExpires) = tokens.CreateRefreshToken();
 
         db.RefreshTokens.Add(new RefreshToken { User = user, TokenHash = refreshHash, ExpiresAt = refreshExpires });
         user.LastLoginAt = DateTime.UtcNow;
+        if (ip is not null) user.LastIp = ip;
         await db.SaveChangesAsync(ct);
 
         return new AuthResponse(access, accessExpires, refresh, refreshExpires, user.ToDto());

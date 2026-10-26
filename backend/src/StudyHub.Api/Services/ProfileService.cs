@@ -17,7 +17,10 @@ public record ProfileVisitor(string? VisitorId, string? Ip, string? UserAgent, G
 
 public partial class ProfileService(AppDbContext db, IOptions<JwtOptions> jwt)
 {
-    public static readonly HashSet<string> Badges = ["student", "focus", "night", "coder", "music", "verified"];
+    public static readonly HashSet<string> Badges = [
+        "student", "focus", "night", "coder", "music", "earlybird", "bookworm", "math", "science", "language",
+        "writer", "artist", "gamer", "athlete", "coffee", "streak", "goal", "exam", "team", "traveler",
+    ];
     public static readonly HashSet<string> Backgrounds = ["aurora", "sunset", "ocean", "night", "custom"];
     public static readonly HashSet<string> Effects = ["stars", "snow", "none"];
     public static readonly HashSet<string> LinkTypes =
@@ -70,6 +73,7 @@ public partial class ProfileService(AppDbContext db, IOptions<JwtOptions> jwt)
         profile.AvatarUrl = AvatarUrl(req.AvatarUrl);
         profile.Bio = req.Bio?.Trim() ?? string.Empty;
         profile.Location = string.IsNullOrWhiteSpace(req.Location) ? null : req.Location.Trim();
+        profile.Role = string.IsNullOrWhiteSpace(req.Role) ? null : req.Role.Trim();
         profile.Badges = badges;
         profile.Background = background;
         profile.BackgroundUrl = OptionalUrl(req.BackgroundUrl, "BackgroundUrl");
@@ -119,19 +123,19 @@ public partial class ProfileService(AppDbContext db, IOptions<JwtOptions> jwt)
 
         var stats = await StatsAsync(profile.UserId, ct);
         return new PublicProfileDto(profile.Slug, profile.DisplayName, profile.AvatarUrl, profile.Bio, profile.Location,
-            profile.Badges, profile.Background, profile.BackgroundUrl, profile.Effect, profile.AccentColor,
+            profile.Role, KnownBadges(profile.Badges), profile.Background, profile.BackgroundUrl, profile.Effect, profile.AccentColor,
             profile.SongUrl, profile.Links, profile.ViewCount, stats, isOwner);
     }
 
     // VI: Tạo hồ sơ mặc định cho user mới (gọi trong lúc đăng ký, trước SaveChanges).
+    //     Chỉ điền sẵn tên và username, phần còn lại để người dùng tự điền.
     // EN: Builds the default profile for a new user (called during sign-up, before SaveChanges).
+    //     Only the name and username are filled in; the user fills in the rest.
     public static async Task<Profile> NewProfileAsync(AppDbContext db, User user, CancellationToken ct) => new()
     {
         User = user,
         Slug = await UniqueSlugAsync(db, user.Username, ct),
         DisplayName = Truncate(string.IsNullOrWhiteSpace(user.DisplayName) ? user.Username : user.DisplayName, 40),
-        Bio = "Studying one Pomodoro at a time.",
-        Badges = ["student"]
     };
 
     // VI: Tài khoản tạo trước khi có tính năng hồ sơ sẽ được tạo hồ sơ khi cần.
@@ -214,8 +218,12 @@ public partial class ProfileService(AppDbContext db, IOptions<JwtOptions> jwt)
     private string Hash(string value) =>
         Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(jwt.Value.Key + "|" + value)));
 
+    // VI: Bỏ các badge đã bị gỡ (vd. "verified") còn lưu trong hồ sơ cũ.
+    // EN: Drop retired badges (e.g. "verified") still stored on old profiles.
+    private static List<string> KnownBadges(List<string> badges) => badges.Where(Badges.Contains).ToList();
+
     private static ProfileDto ToDto(Profile p, ProfileStatsDto stats) =>
-        new(p.Slug, p.DisplayName, p.AvatarUrl, p.Bio, p.Location, p.Badges, p.Background, p.BackgroundUrl, p.Effect,
+        new(p.Slug, p.DisplayName, p.AvatarUrl, p.Bio, p.Location, p.Role, KnownBadges(p.Badges), p.Background, p.BackgroundUrl, p.Effect,
             p.AccentColor, p.SongUrl, p.Links, p.IsPublic, p.IsSuspended, p.ViewCount, stats, p.CreatedAt, p.UpdatedAt);
 
     private static string? OptionalUrl(string? value, string field) =>

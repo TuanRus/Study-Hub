@@ -7,7 +7,7 @@
 
 import { getStorageData, setStorageData } from '../utils/storage.js';
 import { getTotalFocusMinutes } from '../utils/focusLog.js';
-import { api, isRemote, visitorId, publicBaseUrl } from '../utils/api.js';
+import { api, isRemote, visitorId, publicBaseUrl, currentUserName } from '../utils/api.js';
 import { SERVED_BY_BACKEND } from '../config.js';
 import { showToast } from '../utils/toast.js';
 import { getTodos } from './todo.js';
@@ -34,7 +34,21 @@ const BADGES = {
     night: { label: 'Night owl', icon: 'ph-moon-stars' },
     coder: { label: 'Developer', icon: 'ph-code' },
     music: { label: 'Music lover', icon: 'ph-headphones' },
-    verified: { label: 'Verified', icon: 'ph-seal-check' },
+    earlybird: { label: 'Early bird', icon: 'ph-sun-horizon' },
+    bookworm: { label: 'Bookworm', icon: 'ph-books' },
+    math: { label: 'Math lover', icon: 'ph-math-operations' },
+    science: { label: 'Scientist', icon: 'ph-flask' },
+    language: { label: 'Language learner', icon: 'ph-translate' },
+    writer: { label: 'Writer', icon: 'ph-pen-nib' },
+    artist: { label: 'Artist', icon: 'ph-palette' },
+    gamer: { label: 'Gamer', icon: 'ph-game-controller' },
+    athlete: { label: 'Athlete', icon: 'ph-barbell' },
+    coffee: { label: 'Coffee addict', icon: 'ph-coffee' },
+    streak: { label: 'On a streak', icon: 'ph-lightning' },
+    goal: { label: 'Goal crusher', icon: 'ph-target' },
+    exam: { label: 'Exam warrior', icon: 'ph-exam' },
+    team: { label: 'Team player', icon: 'ph-users-three' },
+    traveler: { label: 'Traveler', icon: 'ph-airplane-tilt' },
 };
 
 // VI: Hồ sơ mẫu (test) hiển thị khi chưa đăng nhập và chưa sửa hồ sơ. Không chứa thông tin cá nhân thật.
@@ -45,6 +59,7 @@ const DEFAULT_PROFILE = {
     avatar: '',
     bio: 'Hello! This is my information page.\nStudying one Pomodoro at a time.\nWelcome to my Study Hub ✨',
     location: 'Vietnam',
+    role: 'Developer',
     badges: ['student', 'coder', 'focus'],
     background: 'aurora',
     backgroundUrl: '',
@@ -57,10 +72,10 @@ const DEFAULT_PROFILE = {
     },
 };
 
-// VI: Mặc định của hồ sơ trên server khi bấm Reset (không kèm link của ai cả).
-// EN: Server-side defaults used by Reset (no one's personal links).
-const SERVER_DEFAULTS = {
-    bio: 'Studying one Pomodoro at a time.', location: '', avatar: '', badges: ['student'], background: 'aurora',
+// VI: Các trường của hồ sơ trống (tài khoản mới), người dùng tự điền sau.
+// EN: Fields of a blank profile (new account); the user fills them in later.
+const BLANK_FIELDS = {
+    bio: '', location: '', role: '', avatar: '', badges: [], background: 'aurora',
     backgroundUrl: '', effect: 'stars', accent: '#8b7bff', song: '', links: {},
 };
 
@@ -77,6 +92,7 @@ function fromServer(dto) {
         avatar: dto.avatarUrl || '',
         bio: dto.bio || '',
         location: dto.location || '',
+        role: dto.role || '',
         badges: dto.badges || [],
         background: dto.background,
         backgroundUrl: dto.backgroundUrl || '',
@@ -94,6 +110,7 @@ function toServer(profile, isPublic = true) {
         avatarUrl: profile.avatar || null,
         bio: profile.bio,
         location: profile.location || null,
+        role: profile.role || null,
         badges: profile.badges,
         background: profile.background,
         backgroundUrl: profile.backgroundUrl || null,
@@ -105,9 +122,20 @@ function toServer(profile, isPublic = true) {
     };
 }
 
+// VI: Hồ sơ trống cho tài khoản mới: chỉ có tên và username. EN: Blank profile for a new account: just name and username.
+function blankProfile(username) {
+    return {
+        ...DEFAULT_PROFILE, ...BLANK_FIELDS,
+        name: username,
+        handle: username.toLowerCase().replace(/[^a-z0-9_.]/g, ''),
+    };
+}
+
 function getProfile() {
     if (remoteProfile) return fromServer(remoteProfile);
     const saved = getStorageData(PROFILE_KEY, null);
+    const user = currentUserName();
+    if (!saved && user) return blankProfile(user);
     return { ...DEFAULT_PROFILE, ...(saved || {}), links: { ...(saved ? saved.links : DEFAULT_PROFILE.links) } };
 }
 
@@ -232,6 +260,9 @@ function renderCard(profile) {
     document.getElementById('profile-name').dataset.text = profile.name;
     const handle = document.getElementById('profile-handle');
     handle.textContent = profile.handle ? `@${profile.handle.replace(/^@/, '')}` : '';
+    const role = document.getElementById('profile-role');
+    role.textContent = profile.role || '';
+    role.hidden = !profile.role;
 
     const badges = document.getElementById('profile-badges');
     badges.innerHTML = '';
@@ -322,6 +353,8 @@ function startTypewriter(lines) {
     const target = document.getElementById('profile-bio');
     const view = document.getElementById('view-about');
     if (!target) return;
+    // VI: Chưa có bio thì ẩn hẳn dòng bio (kể cả con trỏ nhấp nháy). EN: No bio: hide the line (and its caret).
+    target.parentElement.hidden = !lines.length;
     const run = ++typewriterRun;
     const items = lines.length ? lines : [''];
     const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -407,6 +440,7 @@ function fillForm(profile) {
     updateAvatarPreview();
     document.getElementById('pf-bio').value = profile.bio;
     document.getElementById('pf-location').value = profile.location;
+    document.getElementById('pf-role').value = profile.role || '';
     document.getElementById('pf-bg').value = profile.background;
     document.getElementById('pf-bg-url').value = profile.backgroundUrl;
     document.getElementById('pf-effect').value = profile.effect;
@@ -414,18 +448,31 @@ function fillForm(profile) {
     document.getElementById('pf-song').value = profile.song;
     document.getElementById('pf-bg-url-wrap').hidden = profile.background !== 'custom';
     renderPublicLink(profile.handle);
+    fillVisibility(remoteProfile ? remoteProfile.isPublic : true);
 
     const badgePicker = document.getElementById('pf-badges');
+    const badgeCount = document.getElementById('pf-badges-count');
+    const updateBadgeCount = () => {
+        const n = badgePicker.querySelectorAll('.badge-option.active').length;
+        badgeCount.textContent = n ? `${n} selected` : '';
+    };
     badgePicker.innerHTML = '';
     Object.entries(BADGES).forEach(([key, badge]) => {
-        const btn = el('button', `badge-option ${profile.badges.includes(key) ? 'active' : ''}`);
+        const active = profile.badges.includes(key);
+        const btn = el('button', `badge-option ${active ? 'active' : ''}`);
         btn.type = 'button';
         btn.dataset.badge = key;
-        btn.title = badge.label;
+        btn.dataset.tip = badge.label;
+        btn.setAttribute('aria-label', badge.label);
+        btn.setAttribute('aria-pressed', active);
         btn.innerHTML = `<i class="ph-fill ${badge.icon}"></i>`;
-        btn.addEventListener('click', () => btn.classList.toggle('active'));
+        btn.addEventListener('click', () => {
+            btn.setAttribute('aria-pressed', btn.classList.toggle('active'));
+            updateBadgeCount();
+        });
         badgePicker.appendChild(btn);
     });
+    updateBadgeCount();
 
     const linksEl = document.getElementById('pf-links');
     linksEl.innerHTML = '';
@@ -445,6 +492,23 @@ function fillForm(profile) {
 }
 
 // VI: Link công khai chỉ có khi đăng nhập tài khoản server. EN: The public link only exists with a server account.
+// VI: Công khai / riêng tư chỉ có ý nghĩa với tài khoản server (hồ sơ trên máy không có link công khai).
+// EN: Public / private only matters for a server account (an on-device profile has no public link).
+function fillVisibility(isPublic) {
+    const input = document.getElementById('pf-public');
+    input.checked = isPublic;
+    input.disabled = !remoteProfile;
+    document.getElementById('pf-public-wrap').classList.toggle('disabled', !remoteProfile);
+    updateVisibilityText();
+}
+
+function updateVisibilityText() {
+    const input = document.getElementById('pf-public');
+    document.getElementById('pf-public-text').textContent = !remoteProfile
+        ? 'Needs a server account'
+        : input.checked ? 'Public: anyone with the link can view' : 'Private: only you can see it';
+}
+
 function renderPublicLink(slug) {
     const box = document.getElementById('pf-public-link');
     if (!box) return;
@@ -484,21 +548,9 @@ function initEditor() {
         document.getElementById('pf-bg-url-wrap').hidden = e.target.value !== 'custom';
     });
 
+    document.getElementById('pf-public').addEventListener('change', updateVisibilityText);
     document.getElementById('pf-handle').addEventListener('input', (e) => {
         if (remoteProfile) renderPublicLink(e.target.value.trim().replace(/^@/, '').toLowerCase());
-    });
-
-    document.getElementById('profile-reset-btn').addEventListener('click', async () => {
-        if (!confirm('Reset your profile to the default?')) return;
-        if (remoteProfile) {
-            const current = fromServer(remoteProfile);
-            const saved = await saveRemote({ ...current, ...SERVER_DEFAULTS });
-            if (!saved) return;
-        } else {
-            localStorage.removeItem(PROFILE_KEY);
-        }
-        modal.classList.add('hidden');
-        renderProfile();
     });
 
     form.addEventListener('submit', async (e) => {
@@ -514,6 +566,7 @@ function initEditor() {
             avatar: document.getElementById('pf-avatar-data').value || safeUrl(document.getElementById('pf-avatar').value.trim()),
             bio: document.getElementById('pf-bio').value,
             location: document.getElementById('pf-location').value.trim(),
+            role: document.getElementById('pf-role').value.trim(),
             badges: [...form.querySelectorAll('.badge-option.active')].map(btn => btn.dataset.badge),
             background: document.getElementById('pf-bg').value,
             backgroundUrl: safeUrl(document.getElementById('pf-bg-url').value.trim()),
@@ -577,7 +630,7 @@ function initAvatarPicker() {
 
 async function saveRemote(profile) {
     try {
-        remoteProfile = await api('/profile', { method: 'PUT', body: toServer(profile, remoteProfile.isPublic) });
+        remoteProfile = await api('/profile', { method: 'PUT', body: toServer(profile, document.getElementById('pf-public').checked) });
         showToast('Profile saved.', 'success', 2000);
         return true;
     } catch (err) {
@@ -586,7 +639,57 @@ async function saveRemote(profile) {
     }
 }
 
+// VI: Tooltip đi theo con trỏ chuột: hiện tên badge/link ngay phía trên chuột (không bị con trỏ che).
+// EN: Cursor tooltip: shows the badge/link name right above the mouse (so the cursor never covers it).
+function initCursorTip() {
+    if (document.getElementById('cursor-tip')) return;
+    const tip = el('div', 'cursor-tip');
+    tip.id = 'cursor-tip';
+    tip.setAttribute('role', 'tooltip');
+    document.body.appendChild(tip);
+
+    let target = null;
+    const place = (x, y) => {
+        const pad = 8;
+        const { width, height } = tip.getBoundingClientRect();
+        let left = x - width / 2;
+        let top = y - height - 14;
+        left = Math.min(Math.max(pad, left), window.innerWidth - width - pad);
+        if (top < pad) top = y + 22;
+        tip.style.transform = `translate(${Math.round(left)}px, ${Math.round(top)}px)`;
+    };
+    const show = (node, x, y) => {
+        target = node;
+        tip.textContent = node.dataset.tip;
+        tip.classList.add('visible');
+        place(x, y);
+    };
+    const hide = () => {
+        target = null;
+        tip.classList.remove('visible');
+    };
+
+    document.addEventListener('pointermove', e => {
+        if (e.pointerType !== 'mouse') return;
+        const node = e.target.closest?.('[data-tip]');
+        if (!node) return target && hide();
+        if (node !== target) show(node, e.clientX, e.clientY);
+        else place(e.clientX, e.clientY);
+    });
+    document.addEventListener('pointerdown', e => e.pointerType !== 'mouse' && hide());
+    document.addEventListener('scroll', hide, true);
+    // VI: Bàn phím: hiện tooltip ngay dưới phần tử đang focus. EN: Keyboard: show it under the focused element.
+    document.addEventListener('focusin', e => {
+        const node = e.target.closest?.('[data-tip]');
+        if (!node || !node.matches(':focus-visible')) return;
+        const r = node.getBoundingClientRect();
+        show(node, r.left + r.width / 2, r.top + 4);
+    });
+    document.addEventListener('focusout', hide);
+}
+
 export function initProfile() {
+    initCursorTip();
     const enterBtn = document.getElementById('profile-enter');
     if (enterBtn) {
         // VI: Màn "click to enter" như guns.lol; trình duyệt chỉ cho phát nhạc sau một cú click.
@@ -634,7 +737,7 @@ function renderPublicPresence(stats) {
 
 function renderPublicMessage(title, message) {
     renderBackground({ ...DEFAULT_PROFILE, effect: 'none' });
-    renderCard({ ...DEFAULT_PROFILE, name: title, handle: '', badges: [], location: '', links: {}, avatar: '' });
+    renderCard({ ...DEFAULT_PROFILE, name: title, handle: '', badges: [], location: '', role: '', links: {}, avatar: '' });
     document.getElementById('profile-avatar').textContent = '?';
     document.querySelector('.profile-meta').hidden = true;
     document.getElementById('presence-card').hidden = true;
@@ -646,6 +749,7 @@ function renderPublicMessage(title, message) {
 // VI: Trang hồ sơ chỉ đọc cho khách. Mỗi lần mở được server đếm (mỗi khách một lần/ngày).
 // EN: Read-only profile page for visitors. Each visit is counted by the server (once per visitor per day).
 export async function initPublicProfile(slug) {
+    initCursorTip();
     document.title = `@${slug} | Study Hub`;
     initTilt();
     let dto;

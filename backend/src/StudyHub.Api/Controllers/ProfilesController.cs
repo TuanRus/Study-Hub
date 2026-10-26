@@ -10,7 +10,7 @@ namespace StudyHub.Api.Controllers;
 [ApiController]
 [Authorize]
 [Tags("Profiles")]
-public class ProfilesController(ProfileService profiles) : ControllerBase
+public class ProfilesController(ProfileService profiles, ReportService reports) : ControllerBase
 {
     /// <summary>Your own bio-link profile (created on first use).</summary>
     [HttpGet("api/profile")]
@@ -45,5 +45,15 @@ public class ProfilesController(ProfileService profiles) : ControllerBase
             Request.Headers.UserAgent.FirstOrDefault(),
             viewer);
         return profiles.GetPublicAsync(slug, visitor, countView, ct);
+    }
+
+    /// <summary>Report someone's profile or account to the admins (spam, abuse...). One open report per account.</summary>
+    [HttpPost("api/profiles/{slug}/report")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Report(string slug, CreateReportRequest req, CancellationToken ct)
+    {
+        await reports.CreateAsync(User.GetUserId(), slug, req, ct);
+        return NoContent();
     }
 }

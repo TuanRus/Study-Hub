@@ -1,13 +1,16 @@
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using StudyHub.Api.Data;
 using StudyHub.Api.Dtos;
 using StudyHub.Api.Entities;
+using StudyHub.Api.Services;
 
 namespace StudyHub.Api.Tests;
 
@@ -20,6 +23,9 @@ public class StudyHubFactory : WebApplicationFactory<Program>
     private readonly SemaphoreSlim _adminLock = new(1, 1);
     private string? _adminToken;
 
+    // VI: Mail "gửi" trong test nằm ở đây thay vì đi qua SMTP. EN: Mail "sent" during tests lands here instead of SMTP.
+    public FakeEmailSender Outbox { get; } = new();
+
     private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"studyhub-test-{Guid.NewGuid():N}.db");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -30,6 +36,11 @@ public class StudyHubFactory : WebApplicationFactory<Program>
         builder.UseSetting("RateLimiting:AuthPermitsPerMinute", "1000");
         builder.UseSetting("RateLimiting:PublicProfilePermitsPerMinute", "1000");
         builder.UseSetting("Admin:SuperAdmins:0", SuperAdminUsername);
+        builder.ConfigureTestServices(services =>
+        {
+            services.AddSingleton<IEmailSender>(Outbox);
+            services.AddSingleton<IStartupFilter, TestIpStartupFilter>();
+        });
     }
 
     public async Task<HttpClient> CreateUserClientAsync(string? username = null)
@@ -82,4 +93,37 @@ public class StudyHubFactory : WebApplicationFactory<Program>
         base.Dispose(disposing);
         if (File.Exists(_dbPath)) File.Delete(_dbPath);
     }
+}
+
+// VI: Header X-Test-Ip giả lập IP người gọi (TestServer không có IP thật). EN: X-Test-Ip fakes the caller's IP (TestServer has none).
+public class TestIpStartupFilter : IStartupFilter
+{
+    public const string Header = "X-Test-Ip";
+
+    public Action<IApplicationBuilder> Configure(Action<IApplicationBuilder> next) => app =>
+    {
+        app.Use((ctx, nxt) =>
+        {
+            if (ctx.Request.Headers.TryGetValue(Header, out var ip))
+                ctx.Connection.RemoteIpAddress = System.Net.IPAddress.Parse(ip.ToString());
+            return nxt(ctx);
+        });
+        next(app);
+    };
+}
+
+public class FakeEmailSender : IEmailSender
+{
+    private readonly System.Collections.Concurrent.ConcurrentQueue<EmailMessage> _sent = new();
+
+    public bool IsConfigured { get; set; } = true;
+    public IReadOnlyList<EmailMessage> Sent => _sent.ToList();
+
+    public Task SendAsync(EmailMessage message, CancellationToken ct)
+    {
+        _sent.Enqueue(message);
+        return Task.CompletedTask;
+    }
+
+    public List<EmailMessage> To(string email) => Sent.Where(m => m.To == email).ToList();
 }

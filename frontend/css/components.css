@@ -292,7 +292,122 @@ input:focus {
 }
 
 .music-library-head {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    min-height: 34px;
     margin-bottom: var(--space-3);
+}
+
+.music-library-head h3 {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 15px;
+}
+
+.music-library-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.music-library-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+
+.music-library-actions .is-shared {
+    color: var(--accent);
+}
+
+.music-library-actions .music-play-all {
+    background: var(--accent);
+    color: var(--accent-contrast);
+}
+
+.music-library-actions .music-play-all:hover {
+    background: var(--accent-strong);
+}
+
+.music-library-actions .icon-btn:disabled,
+.playlist-row .play-music-item-btn:disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.music-library-hint {
+    margin-top: var(--space-3);
+    font-size: 12.5px;
+    color: var(--text-faint);
+}
+
+/* VI: Danh sách playlist trong popover. EN: Playlist list inside the popover. */
+.playlist-list {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.playlist-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding-right: 8px;
+    border-radius: var(--radius-md);
+    background: var(--surface-2);
+    transition: background var(--transition);
+}
+
+.playlist-row:hover {
+    background: var(--surface-3);
+}
+
+.playlist-open {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: 10px 12px;
+    text-align: left;
+    color: var(--text);
+}
+
+.playlist-open > i {
+    font-size: 22px;
+    color: var(--accent);
+    flex-shrink: 0;
+}
+
+.playlist-open .ph-heart {
+    color: var(--mode-work);
+}
+
+.playlist-text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.playlist-text strong {
+    font-size: 14px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.playlist-text small {
+    font-size: 12px;
+    color: var(--text-faint);
+}
+
+.music-item.is-playing {
+    box-shadow: inset 3px 0 0 var(--accent);
 }
 
 .music-library .empty-state {
@@ -1017,13 +1132,51 @@ input:focus {
     color: var(--text-muted);
 }
 
-.music-player-head span {
+.music-now {
+    flex: 1;
+    min-width: 0;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 8px;
 }
 
-.music-player-head span i {
+.music-now > i {
+    color: var(--accent);
+    flex-shrink: 0;
+}
+
+.music-now-text {
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.25;
+}
+
+.music-now-text strong,
+.music-now-text small {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.music-now-text strong {
+    color: var(--text);
+    font-weight: 600;
+}
+
+.music-now-text small {
+    font-size: 11.5px;
+    font-weight: 500;
+    color: var(--text-faint);
+}
+
+.music-player-controls {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+}
+
+#music-repeat-btn[aria-pressed="true"] {
     color: var(--accent);
 }
 
@@ -1041,6 +1194,11 @@ input:focus {
 /* VI: Thu nhỏ nhưng vẫn giữ iframe để nhạc tiếp tục phát. EN: Minimized but iframe stays mounted so audio keeps playing. */
 .music-player-container.minimized {
     width: auto;
+    max-width: 360px;
+}
+
+.music-frame > div {
+    height: 100%;
 }
 
 .music-player-container.minimized .music-frame {
@@ -1185,9 +1343,69 @@ input:focus {
     color: var(--success);
 }
 
+/* VI: Quên mật khẩu. EN: Forgot password. */
+.auth-forgot-link {
+    align-self: flex-end;
+    margin-top: 2px;
+    font-size: 12.5px;
+}
+
+.auth-forgot-link[hidden],
+.auth-tabs[hidden],
+.auth-form[hidden],
+.forgot-step-code[hidden] {
+    display: none;
+}
+
+.forgot-head h4 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 17px;
+}
+
+.forgot-head h4 i {
+    color: var(--accent);
+}
+
+.forgot-hint {
+    margin-top: 6px;
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.forgot-step-code {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+}
+
+.otp-input {
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.5em;
+    text-align: center;
+}
+
+.forgot-links {
+    display: flex;
+    justify-content: space-between;
+}
+
+.forgot-links .text-btn:disabled {
+    color: var(--text-faint);
+    cursor: default;
+    text-decoration: none;
+}
+
 /* VI: Lỗi trong hộp thoại (vd. đổi mật khẩu) vẫn màu đỏ. EN: Errors inside a dialog (e.g. change password) stay red. */
 .modal-content .auth-message {
     color: var(--danger);
+}
+
+.modal-content .auth-message.success {
+    color: var(--success);
 }
 
 /* ---------- Toasts ---------- */
@@ -1885,10 +2103,6 @@ select {
     font-size: 14px;
 }
 
-.admin-stats {
-    margin-bottom: var(--space-5);
-}
-
 .admin-grid {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 300px;
@@ -1896,9 +2110,49 @@ select {
     align-items: start;
 }
 
+/* VI: Cột trái: Users + Reports; cột phải: Server, Auto star, Banned IPs. EN: Left: Users + Reports; right: Server, Auto star, Banned IPs. */
+.admin-main,
+.admin-side {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    min-width: 0;
+}
+
 .admin-users-card .card-header {
     flex-wrap: wrap;
     gap: var(--space-3);
+}
+
+.admin-filters {
+    display: flex;
+    flex: 1;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    gap: var(--space-2);
+}
+
+.admin-filters .admin-search {
+    flex: 1 1 180px;
+    height: 36px;
+}
+
+select.admin-select {
+    width: auto;
+    height: 36px;
+    padding: 0 30px 0 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface-2) no-repeat right 10px center / 12px
+        url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 256 256'%3E%3Cpath fill='%23888' d='M213.7 101.7l-80 80a8 8 0 0 1-11.4 0l-80-80a8 8 0 0 1 11.4-11.4L128 164.7l74.3-74.4a8 8 0 0 1 11.4 11.4Z'/%3E%3C/svg%3E");
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+}
+
+.modal-content select.admin-select {
+    width: 100%;
+    height: 42px;
 }
 
 .admin-search {
@@ -1976,11 +2230,257 @@ select {
     color: var(--danger);
 }
 
+.admin-badge.is-warn {
+    background: color-mix(in srgb, var(--warning) 18%, transparent);
+    color: var(--warning);
+}
+
+.admin-muted.is-warn {
+    color: var(--warning);
+    font-weight: 650;
+}
+
+/* VI: Sao đánh dấu tài khoản lạm dụng, lý do hiện khi rê chuột. EN: Star for abusive accounts; the reason shows on hover. */
+.admin-star {
+    margin-right: 5px;
+    color: var(--warning);
+    font-size: 13px;
+    vertical-align: -1px;
+    cursor: help;
+}
+
+.admin-nowrap {
+    white-space: nowrap;
+}
+
+@media (max-width: 640px) {
+    .admin-filters {
+        flex-basis: 100%;
+    }
+
+    .admin-filters .admin-search {
+        flex-basis: 100%;
+        max-width: none;
+    }
+
+    .admin-filters .admin-select {
+        flex: 1;
+    }
+}
+
+.modal-content textarea {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    font: inherit;
+    color: inherit;
+    resize: vertical;
+    outline: none;
+}
+
+.modal-content textarea:focus {
+    border-color: var(--accent);
+}
+
+.modal-content h4 i.admin-danger-icon {
+    color: var(--danger);
+}
+
+.admin-starred-btn i {
+    color: var(--warning);
+}
+
+.admin-ip {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 11.5px;
+}
+
+.admin-ban-form {
+    display: flex;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+
+.admin-ban-form .admin-search {
+    max-width: none;
+    min-width: 0;
+}
+
+.admin-bans {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.admin-ban {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-2);
+    padding: 8px 0;
+    border-top: 1px solid var(--border);
+    font-size: 13px;
+}
+
+.admin-ban .admin-ip {
+    font-size: 12.5px;
+    font-weight: 650;
+}
+
+.admin-reports-card .card-header {
+    gap: var(--space-2);
+}
+
+.admin-report {
+    align-items: flex-start;
+}
+
+.admin-report-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 2px;
+}
+
+.admin-report-target {
+    font-weight: 650;
+}
+
+.admin-report-details {
+    display: block;
+    margin: 2px 0;
+    font-size: 12.5px;
+    word-break: break-word;
+}
+
+.admin-settings {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.admin-settings label {
+    display: grid;
+    grid-template-columns: 74px 72px 1fr;
+    align-items: center;
+    gap: 8px;
+    color: var(--text-muted);
+    font-size: 13px;
+}
+
+.admin-settings input[type="number"] {
+    height: 34px;
+    padding: 0 8px;
+    text-align: center;
+    font-weight: 650;
+    color: var(--text);
+}
+
+.admin-settings .btn {
+    align-self: flex-end;
+}
+
+.admin-checks {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.admin-check {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 14px;
+    cursor: pointer;
+}
+
+.admin-check[hidden] {
+    display: none;
+}
+
+.admin-check input {
+    accent-color: var(--accent);
+    width: 16px;
+    height: 16px;
+}
+
+.admin-check .admin-muted {
+    display: inline;
+}
+
+.admin-note {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12.5px;
+}
+
+.admin-note i {
+    color: var(--warning);
+}
+
+.label-hint {
+    color: var(--text-faint);
+    font-weight: 500;
+}
+
+.btn-primary.btn-danger-fill {
+    background: var(--danger);
+    border-color: var(--danger);
+    color: #fff;
+}
+
 .admin-actions {
     display: flex;
     justify-content: flex-end;
     gap: 4px;
     white-space: nowrap;
+}
+
+.admin-menu {
+    position: fixed;
+    z-index: 50;
+    display: none;
+    min-width: 200px;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--surface);
+    box-shadow: var(--shadow-lg);
+}
+
+.admin-menu.open {
+    display: flex;
+    flex-direction: column;
+}
+
+.admin-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border: 0;
+    border-radius: var(--radius-sm, 6px);
+    background: none;
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    text-align: left;
+    cursor: pointer;
+}
+
+.admin-menu-item:hover,
+.admin-menu-item:focus-visible {
+    background: var(--surface-2);
+}
+
+.admin-menu-item.is-danger {
+    color: var(--danger);
 }
 
 .admin-pager {
@@ -2013,10 +2513,73 @@ select {
 
 @media (max-width: 1100px) {
     .admin-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: minmax(0, 1fr);
     }
+
 }
 
 .btn-danger-icon:hover {
     color: var(--danger);
 }
+
+/* VI: Nút đóng luôn nằm bên phải, kể cả khi ẩn tab. EN: Keep the close button on the right even when the tabs are hidden. */
+.auth-header .icon-btn {
+    margin-left: auto;
+}
+
+/* ---------- Playlist sharing ---------- */
+.share-link-row {
+    display: flex;
+    gap: var(--space-2);
+}
+
+.share-link-row input {
+    flex: 1;
+    min-width: 0;
+    font-size: 13px;
+}
+
+.share-link-row .btn {
+    height: auto;
+}
+
+.modal-content .share-hint {
+    font-size: 12.5px;
+    color: var(--text-faint);
+}
+
+.shared-playlist {
+    max-width: 460px;
+    max-height: calc(100vh - 32px);
+}
+
+.shared-playlist h4 span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.shared-playlist a {
+    font-weight: 600;
+}
+
+.modal-content .shared-playlist-tracks {
+    gap: 6px;
+    max-height: 46vh;
+    overflow-y: auto;
+}
+
+.modal-content .shared-playlist-tracks li {
+    font-size: inherit;
+}
+
+@media (max-width: 480px) {
+    .shared-playlist .modal-actions {
+        flex-wrap: wrap;
+    }
+
+    .shared-playlist .modal-actions .btn {
+        flex: 1;
+    }
+}
+

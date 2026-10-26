@@ -62,7 +62,6 @@ export function initPomodoro() {
     const ringEl = document.getElementById('pomo-ring-progress');
     const pomoStartBtn = document.getElementById('pomo-start-pause');
     const pomoResetBtn = document.getElementById('pomo-reset');
-    const pomoSkipBtn = document.getElementById('pomo-skip');
     const timeWorkInput = document.getElementById('pomo-time-setting');
     const timeShortBreakInput = document.getElementById('short-break-setting');
     const timeLongBreakInput = document.getElementById('long-break-setting');
@@ -220,11 +219,6 @@ export function initPomodoro() {
         });
 
         if (pomoResetBtn) pomoResetBtn.addEventListener('click', resetPomoTimer);
-
-        if (pomoSkipBtn) pomoSkipBtn.addEventListener('click', () => {
-            stopPomoTimer();
-            switchMode();
-        });
 
         // VI: Delegate event listener cho mảng input để cập nhật cài đặt realtime. 
         // EN: Delegate event listener array for realtime settings update.

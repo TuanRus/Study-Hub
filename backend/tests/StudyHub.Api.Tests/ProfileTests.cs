@@ -1,5 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
+using StudyHub.Api.Data;
 using StudyHub.Api.Dtos;
 using StudyHub.Api.Entities;
 
@@ -34,6 +37,13 @@ public class ProfileTests(StudyHubFactory factory) : IClassFixture<StudyHubFacto
         Assert.Equal(0, profile.ViewCount);
         Assert.Null(profile.UpdatedAt);
         Assert.True(profile.IsPublic);
+        // VI: Tài khoản mới chỉ có tên và username, phần còn lại trống. EN: A new account only has name and username.
+        Assert.Equal(name, profile.DisplayName);
+        Assert.Equal("", profile.Bio);
+        Assert.Empty(profile.Badges);
+        Assert.Null(profile.Location);
+        Assert.Null(profile.Role);
+        Assert.Empty(profile.Links);
     }
 
     [Fact]
@@ -183,6 +193,57 @@ public class ProfileTests(StudyHubFactory factory) : IClassFixture<StudyHubFacto
         var client = await factory.CreateUserClientAsync();
         var res = await client.PutAsJsonAsync("/api/profile", Request(NewName(), new() { [type] = url }), TestJson.Options);
         Assert.Equal(HttpStatusCode.BadRequest, res.StatusCode);
+    }
+
+    [Fact]
+    public async Task New_badges_are_accepted_and_verified_is_rejected()
+    {
+        var client = await factory.CreateUserClientAsync();
+        var slug = NewName();
+        var res = await client.PutAsJsonAsync("/api/profile",
+            Request(slug) with { Badges = ["bookworm", "earlybird", "traveler"] }, TestJson.Options);
+        res.EnsureSuccessStatusCode();
+        Assert.Equal(["bookworm", "earlybird", "traveler"], (await Visit(slug, null, countView: false)).Badges);
+
+        var bad = await client.PutAsJsonAsync("/api/profile", Request(slug) with { Badges = ["verified"] }, TestJson.Options);
+        Assert.Equal(HttpStatusCode.BadRequest, bad.StatusCode);
+    }
+
+    [Fact]
+    public async Task Role_is_saved_and_shown_publicly()
+    {
+        var client = await factory.CreateUserClientAsync();
+        var slug = NewName();
+        (await client.PutAsJsonAsync("/api/profile", Request(slug) with { Role = "  Cloud Engineer " }, TestJson.Options))
+            .EnsureSuccessStatusCode();
+        Assert.Equal("Cloud Engineer", (await Visit(slug, null, countView: false)).Role);
+
+        var tooLong = await client.PutAsJsonAsync("/api/profile", Request(slug) with { Role = new string('x', 41) }, TestJson.Options);
+        Assert.Equal(HttpStatusCode.BadRequest, tooLong.StatusCode);
+
+        (await client.PutAsJsonAsync("/api/profile", Request(slug) with { Role = " " }, TestJson.Options)).EnsureSuccessStatusCode();
+        var own = await client.GetFromJsonAsync<ProfileDto>("/api/profile", TestJson.Options);
+        Assert.Null(own!.Role);
+    }
+
+    [Fact]
+    public async Task Old_verified_badge_is_hidden_from_profiles()
+    {
+        var client = await factory.CreateUserClientAsync();
+        var slug = NewName();
+        (await client.PutAsJsonAsync("/api/profile", Request(slug), TestJson.Options)).EnsureSuccessStatusCode();
+
+        using (var scope = factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var stored = await db.Profiles.SingleAsync(p => p.Slug == slug);
+            stored.Badges = ["verified", "coder"];
+            await db.SaveChangesAsync();
+        }
+
+        Assert.Equal(["coder"], (await Visit(slug, null, countView: false)).Badges);
+        var own = await client.GetFromJsonAsync<ProfileDto>("/api/profile", TestJson.Options);
+        Assert.Equal(["coder"], own!.Badges);
     }
 
     [Fact]

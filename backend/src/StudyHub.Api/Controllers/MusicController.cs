@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using StudyHub.Api.Common;
 using StudyHub.Api.Dtos;
 using StudyHub.Api.Services;
@@ -63,4 +64,25 @@ public class MusicController(PlaylistService playlists) : ControllerBase
     [HttpPut("api/playlists/{id:guid}/tracks/order")]
     public Task<PlaylistDetailDto> Reorder(Guid id, ReorderTracksRequest req, CancellationToken ct) =>
         playlists.ReorderAsync(User.GetUserId(), id, req, ct);
+
+    /// <summary>Share a playlist by link (or stop sharing it). Stopping clears the code, so old links stop working.</summary>
+    [HttpPut("api/playlists/{id:guid}/share")]
+    public Task<PlaylistDetailDto> Share(Guid id, SharePlaylistRequest req, CancellationToken ct) =>
+        playlists.SetSharedAsync(User.GetUserId(), id, req, ct);
+
+    /// <summary>A shared playlist, no sign-in needed. The code comes from the share link (/?playlist=code).</summary>
+    [AllowAnonymous]
+    [HttpGet("api/shared-playlists/{code}")]
+    [EnableRateLimiting("public")]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
+    public Task<SharedPlaylistDto> GetShared(string code, CancellationToken ct) => playlists.GetSharedAsync(code, ct);
+
+    /// <summary>Save a copy of a shared playlist to your own playlists.</summary>
+    [HttpPost("api/shared-playlists/{code}/copy")]
+    [ProducesResponseType<PlaylistDetailDto>(StatusCodes.Status201Created)]
+    public async Task<IActionResult> CopyShared(string code, CancellationToken ct)
+    {
+        var playlist = await playlists.CopySharedAsync(User.GetUserId(), code, ct);
+        return CreatedAtAction(nameof(Get), new { id = playlist.Id }, playlist);
+    }
 }

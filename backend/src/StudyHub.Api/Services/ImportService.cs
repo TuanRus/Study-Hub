@@ -15,16 +15,19 @@ public class ImportService(AppDbContext db, ProfileService profiles)
 
     public async Task<ImportResultDto> ImportAsync(Guid userId, ImportLocalRequest req, CancellationToken ct)
     {
-        if ((req.Todos?.Count ?? 0) > MaxItems || (req.Music?.Count ?? 0) > MaxItems || (req.FocusLog?.Count ?? 0) > MaxItems)
+        if ((req.Todos?.Count ?? 0) > MaxItems || (req.Music?.Count ?? 0) > MaxItems || (req.FocusLog?.Count ?? 0) > MaxItems
+            || (req.Playlists?.Count ?? 0) > PlaylistService.MaxPlaylistsPerUser
+            || (req.Playlists?.Any(p => (p.Music?.Count ?? 0) > PlaylistService.MaxTracksPerPlaylist) ?? false))
             throw new BadRequestException($"Each list may contain at most {MaxItems} items.");
 
         var tasks = await ImportTodosAsync(userId, req.Todos ?? [], ct);
         var (tracks, skipped) = await ImportMusicAsync(userId, req.Music ?? [], ct);
+        var (playlists, playlistTracks, playlistSkipped) = await ImportPlaylistsAsync(userId, req.Playlists ?? [], ct);
         var sessions = await ImportFocusLogAsync(userId, req.FocusLog ?? [], ct);
         var profileImported = req.Profile is not null && await ImportProfileAsync(userId, req.Profile, ct);
 
         await db.SaveChangesAsync(ct);
-        return new ImportResultDto(tasks, tracks, skipped, sessions, profileImported);
+        return new ImportResultDto(tasks, tracks + playlistTracks, skipped + playlistSkipped, sessions, profileImported, playlists);
     }
 
     private async Task<int> ImportTodosAsync(Guid userId, List<LocalTodo> todos, CancellationToken ct)
@@ -88,8 +91,46 @@ public class ImportService(AppDbContext db, ProfileService profiles)
             db.Playlists.Add(favorites);
         }
 
-        var seen = favorites.Tracks.Select(t => t.EmbedUrl).ToHashSet();
-        var position = favorites.Tracks.Count == 0 ? 0 : favorites.Tracks.Max(t => t.Position) + 1;
+        return AddTracks(favorites, music);
+    }
+
+    // VI: Playlist cùng tên đã có thì gộp bài vào, không tạo playlist trùng khi nhập lại.
+    // EN: A playlist with the same name gets the tracks merged in, so importing again creates no duplicates.
+    private async Task<(int Playlists, int Imported, int Skipped)> ImportPlaylistsAsync(
+        Guid userId, List<LocalPlaylist> playlists, CancellationToken ct)
+    {
+        if (playlists.Count == 0) return (0, 0, 0);
+
+        var existing = await db.Playlists.Include(p => p.Tracks).Where(p => p.UserId == userId && !p.IsDefault).ToListAsync(ct);
+        var total = await db.Playlists.CountAsync(p => p.UserId == userId, ct);
+        int created = 0, imported = 0, skipped = 0;
+        foreach (var item in playlists)
+        {
+            var name = item.Name?.Trim();
+            if (string.IsNullOrEmpty(name)) continue;
+            if (name.Length > 100) name = name[..100];
+
+            var playlist = existing.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (playlist is null)
+            {
+                if (total >= PlaylistService.MaxPlaylistsPerUser) break;
+                playlist = new Playlist { UserId = userId, Name = name };
+                db.Playlists.Add(playlist);
+                existing.Add(playlist);
+                total++;
+                created++;
+            }
+            var (added, rejected) = AddTracks(playlist, item.Music ?? []);
+            imported += added;
+            skipped += rejected;
+        }
+        return (created, imported, skipped);
+    }
+
+    private (int Imported, int Skipped) AddTracks(Playlist playlist, List<LocalMusic> music)
+    {
+        var seen = playlist.Tracks.Select(t => t.EmbedUrl).ToHashSet();
+        var position = playlist.Tracks.Count == 0 ? 0 : playlist.Tracks.Max(t => t.Position) + 1;
         int imported = 0, skipped = 0;
         foreach (var item in music)
         {
@@ -103,7 +144,7 @@ public class ImportService(AppDbContext db, ProfileService profiles)
                 skipped++;
                 continue;
             }
-            if (!seen.Add(resolved.EmbedUrl))
+            if (seen.Count >= PlaylistService.MaxTracksPerPlaylist || !seen.Add(resolved.EmbedUrl))
             {
                 skipped++;
                 continue;
@@ -112,7 +153,7 @@ public class ImportService(AppDbContext db, ProfileService profiles)
             var title = string.IsNullOrWhiteSpace(item.Name) ? PlaylistService.DefaultTitle(resolved.Provider) : item.Name.Trim();
             db.Tracks.Add(new Track
             {
-                Playlist = favorites,
+                Playlist = playlist,
                 Title = title.Length > 200 ? title[..200] : title,
                 SourceUrl = item.Url!.Trim(),
                 EmbedUrl = resolved.EmbedUrl,
@@ -185,6 +226,7 @@ public class ImportService(AppDbContext db, ProfileService profiles)
         profile.AvatarUrl = Url(local.Avatar);
         if (local.Bio is not null) profile.Bio = Clip(local.Bio.Trim(), 400);
         profile.Location = string.IsNullOrWhiteSpace(local.Location) ? null : Clip(local.Location.Trim(), 40);
+        profile.Role = string.IsNullOrWhiteSpace(local.Role) ? null : Clip(local.Role.Trim(), 40);
         if (local.Badges is not null)
             profile.Badges = local.Badges.Select(b => b.ToLowerInvariant()).Where(ProfileService.Badges.Contains).Distinct().ToList();
         if (local.Background is { } bg && ProfileService.Backgrounds.Contains(bg)) profile.Background = bg;

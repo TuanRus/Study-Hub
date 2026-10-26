@@ -19,6 +19,8 @@ public class Profile
     public string? AvatarUrl { get; set; }
     public string Bio { get; set; } = string.Empty;
     public string? Location { get; set; }
+    // VI: Vai trò tự nhập, vd. "Developer", "Cloud Engineer". EN: Free-text role, e.g. "Developer", "Cloud Engineer".
+    public string? Role { get; set; }
     public List<string> Badges { get; set; } = [];
 
     // VI: aurora | sunset | ocean | night | custom (custom dùng BackgroundUrl).

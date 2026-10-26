@@ -37,6 +37,13 @@ public record UpdateProfileRequest(
     [StringLength(64)] string? DisplayName,
     [StringLength(64)] string? TimeZone);
 
+public record ForgotPasswordRequest([Required, EmailAddress, StringLength(256)] string Email);
+
+public record ResetPasswordRequest(
+    [Required, EmailAddress, StringLength(256)] string Email,
+    [Required, RegularExpression("^\\s*[0-9]{6}\\s*$", ErrorMessage = "The code has 6 digits.")] string Code,
+    [Required, StringLength(100, MinimumLength = 8)] string NewPassword);
+
 public record ChangePasswordRequest(
     [Required] string CurrentPassword,
     [Required, StringLength(100, MinimumLength = 8)] string NewPassword);
