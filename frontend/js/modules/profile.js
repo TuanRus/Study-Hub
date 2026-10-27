@@ -698,12 +698,10 @@ export function initProfile() {
     initCursorTip();
     const enterBtn = document.getElementById('profile-enter');
     if (enterBtn) {
-        // VI: Màn "click to enter" như guns.lol; trình duyệt chỉ cho phát nhạc sau một cú click.
-        // EN: guns.lol-style "click to enter"; browsers only allow audio after a user click.
+        // VI: Màn "click to enter" như guns.lol. Nhạc hồ sơ chỉ tự phát trên link bio công khai, không phát ở trang About.
+        // EN: guns.lol-style "click to enter". The profile song only autoplays on the public bio link, not on the About page.
         enterBtn.addEventListener('click', () => {
             document.getElementById('profile-stage').classList.add('entered');
-            const song = getProfile().song;
-            if (song) playProfileSong(song);
         });
     }
     initTilt();
