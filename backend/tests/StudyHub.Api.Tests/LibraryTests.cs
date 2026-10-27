@@ -30,6 +30,16 @@ public class LibraryTests
                 return Task.FromResult(Json("""{"subsonic-response":{"status":"ok","song":{"id":"abc123","title":"Lofi Song","artist":"Chill"}}}"""));
             if (path.EndsWith("/rest/getRandomSongs"))
                 return Task.FromResult(Json("""{"subsonic-response":{"status":"ok","randomSongs":{"song":[{"id":"r1","title":"Random"}]}}}"""));
+            if (path.EndsWith("/rest/getArtists"))
+                return Task.FromResult(Json("""{"subsonic-response":{"status":"ok","artists":{"index":[{"name":"C","artist":[{"id":"ar1","name":"Chill","albumCount":2}]},{"name":"A","artist":[{"id":"ar2","name":"Ambient","albumCount":1}]}]}}}"""));
+            if (path.EndsWith("/rest/getArtist"))
+                return Task.FromResult(request.RequestUri.Query.Contains("id=ar1")
+                    ? Json("""{"subsonic-response":{"status":"ok","artist":{"id":"ar1","name":"Chill","album":[{"id":"al1"},{"id":"al2"}]}}}""")
+                    : Json("""{"subsonic-response":{"status":"failed","error":{"code":70,"message":"Artist not found"}}}"""));
+            if (path.EndsWith("/rest/getAlbum"))
+                return Task.FromResult(request.RequestUri.Query.Contains("id=al1")
+                    ? Json("""{"subsonic-response":{"status":"ok","album":{"id":"al1","song":[{"id":"s1","title":"One","artist":"Chill","album":"Beats"},{"id":"s2","title":"Two","artist":"Chill","album":"Beats"}]}}}""")
+                    : Json("""{"subsonic-response":{"status":"ok","album":{"id":"al2","song":[{"id":"s3","title":"Three","artist":"Chill","album":"Waves"}]}}}"""));
             if (path.EndsWith("/rest/stream"))
             {
                 if (request.RequestUri.Query.Contains("id=missing"))
@@ -121,6 +131,27 @@ public class LibraryTests
             Assert.DoesNotContain(Password, query);
             Assert.DoesNotContain("p=", query);
         }
+    }
+
+    [Fact]
+    public async Task Admin_browses_by_artist()
+    {
+        using var factory = new LibraryFactory(configured: true);
+        var user = await factory.CreateUserClientAsync();
+        Assert.Equal(HttpStatusCode.Forbidden, (await user.GetAsync("/api/library/artists")).StatusCode);
+        Assert.Equal(HttpStatusCode.Forbidden, (await user.GetAsync("/api/library/artists/ar1/songs")).StatusCode);
+        Assert.Empty(factory.Navidrome.Requests);
+
+        var admin = await factory.CreateSuperAdminClientAsync();
+        var artists = await admin.GetFromJsonAsync<List<LibraryArtistDto>>("/api/library/artists", TestJson.Options);
+        Assert.Equal([new LibraryArtistDto("ar2", "Ambient", 1), new LibraryArtistDto("ar1", "Chill", 2)], artists);
+
+        var songs = (await admin.GetFromJsonAsync<List<LibrarySongDto>>("/api/library/artists/ar1/songs", TestJson.Options))!;
+        Assert.Equal(["s1", "s2", "s3"], songs.Select(s => s.Id));
+        Assert.Equal("Waves", songs[2].Album);
+
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync("/api/library/artists/nobody/songs")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.GetAsync("/api/library/artists/bad%20id/songs")).StatusCode);
     }
 
     [Fact]

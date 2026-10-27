@@ -25,6 +25,18 @@ public class LibraryController(NavidromeClient navidrome, LibraryStreamLinks lin
         return navidrome.SearchAsync(q, ct);
     }
 
+    /// <summary>All artists in the NAS library.</summary>
+    [HttpGet("api/library/artists")]
+    public Task<List<LibraryArtistDto>> Artists(CancellationToken ct) => navidrome.GetArtistsAsync(ct);
+
+    /// <summary>Every song of one artist, album by album.</summary>
+    [HttpGet("api/library/artists/{id}/songs")]
+    public Task<List<LibrarySongDto>> ArtistSongs(string id, CancellationToken ct)
+    {
+        if (!NavidromeClient.SongIdPattern().IsMatch(id)) throw new NotFoundException("Artist");
+        return navidrome.GetArtistSongsAsync(id, ct);
+    }
+
     /// <summary>A short-lived link an &lt;audio&gt; element can play.</summary>
     [HttpGet("api/library/songs/{id}/stream-url")]
     public LibraryStreamDto StreamUrl(string id)

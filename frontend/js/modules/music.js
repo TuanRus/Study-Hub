@@ -45,6 +45,8 @@ export async function loadRemoteMusic() {
 export function clearRemoteMusic() {
     remotePlaylists = null;
     nasEnabled = null;
+    nasArtists = null;
+    nasArtist = null;
     refreshLibrary();
 }
 
@@ -55,6 +57,11 @@ const NAS_VIEW = '__nas';
 let nasEnabled = null; // null = not checked yet
 let nasQuery = '';
 let nasResults = null;
+// VI: Tab "Songs" (tìm bài) hoặc "Artists" (duyệt theo nghệ sĩ). EN: "Songs" tab (search) or "Artists" tab (browse by artist).
+let nasTab = 'songs';
+let nasArtists = null;
+let nasArtistFilter = '';
+let nasArtist = null; // { id, name, songs } of the open artist
 // VI: Mở hộp thoại "Lưu vào playlist"; được gán trong initMusic. EN: Opens the "Save to a playlist" dialog; set in initMusic.
 let openSaveDialog = () => {};
 
@@ -654,6 +661,21 @@ async function renderLibrary() {
         return;
     }
 
+    if (openPlaylistId === NAS_VIEW && nasArtist) {
+        back.hidden = false;
+        title.replaceChildren(el('span', 'music-library-name', nasArtist.name));
+        title.title = nasArtist.name;
+        const play = iconButton('ph-fill ph-play', 'Play all', 'icon-btn icon-btn-xs music-play-all');
+        play.disabled = !nasArtist.songs?.length;
+        play.addEventListener('click', () => {
+            playQueue(nasArtist.songs, 0, `NAS: ${nasArtist.name}`);
+            setLibraryOpen(false);
+        });
+        actions.replaceChildren(play);
+        renderArtistSongs(body);
+        return;
+    }
+
     if (openPlaylistId === NAS_VIEW) {
         back.hidden = false;
         title.innerHTML = '<i class="ph ph-hard-drives"></i> NAS library';
@@ -736,15 +758,38 @@ function renderPlaylistList(body) {
         const text = el('span', 'playlist-text');
         text.append(el('strong', '', 'NAS library'), el('small', '', 'Your music on the NAS · only you'));
         open.append(el('i', 'ph-fill ph-hard-drives'), text);
-        open.addEventListener('click', () => { openPlaylistId = NAS_VIEW; renderLibrary(); });
+        open.addEventListener('click', () => { openPlaylistId = NAS_VIEW; nasArtist = null; renderLibrary(); });
         li.append(open);
         list.appendChild(li);
     });
 }
 
+// VI: Hai tab: "Songs" (tìm bài) và "Artists" (duyệt theo nghệ sĩ). EN: Two tabs: "Songs" (search) and "Artists" (browse).
+function renderNasView(body) {
+    const tabs = el('div', 'nas-tabs');
+    tabs.setAttribute('role', 'tablist');
+    const content = el('div');
+    for (const [key, icon, label] of [['songs', 'ph-music-notes', 'Songs'], ['artists', 'ph-microphone-stage', 'Artists']]) {
+        const tab = el('button', 'nas-tab');
+        tab.type = 'button';
+        tab.setAttribute('role', 'tab');
+        tab.setAttribute('aria-selected', String(nasTab === key));
+        tab.innerHTML = `<i class="ph ${icon}"></i> ${label}`;
+        tab.addEventListener('click', () => {
+            if (nasTab === key) return;
+            nasTab = key;
+            renderNasView(body);
+        });
+        tabs.append(tab);
+    }
+    body.replaceChildren(tabs, content);
+    if (nasTab === 'artists') renderArtistsTab(content);
+    else renderSongsTab(content);
+}
+
 // VI: Tìm trong kho NAS; ô trống = bài ngẫu nhiên. Bấm một bài để phát cả danh sách kết quả từ bài đó.
 // EN: Search the NAS library; empty = random songs. Clicking a song plays the result list from there.
-function renderNasView(body) {
+function renderSongsTab(body) {
     const form = el('form', 'nas-search');
     const input = el('input');
     input.type = 'search';
@@ -780,12 +825,93 @@ async function searchNas(results) {
 }
 
 function renderNasResults(results) {
-    if (!nasResults.length) {
+    renderNasSongs(results, nasResults, nasQuery ? `NAS: ${nasQuery}` : 'NAS library');
+}
+
+// VI: Danh sách nghệ sĩ, lọc ngay trên máy (không gọi lại server). EN: The artist list, filtered locally (no new request).
+function renderArtistsTab(body) {
+    const filter = el('input', 'nas-filter');
+    filter.type = 'search';
+    filter.placeholder = 'Filter artists...';
+    filter.setAttribute('aria-label', 'Filter artists');
+    filter.maxLength = 100;
+    filter.value = nasArtistFilter;
+    const results = el('div');
+    filter.addEventListener('input', () => {
+        nasArtistFilter = filter.value;
+        if (nasArtists) renderArtistList(results);
+    });
+    body.replaceChildren(filter, results);
+    if (nasArtists) renderArtistList(results);
+    else loadArtists(results);
+    filter.focus();
+}
+
+async function loadArtists(results) {
+    results.innerHTML = '<p class="music-library-hint">Loading...</p>';
+    try {
+        nasArtists = await api('/library/artists');
+    } catch (err) {
+        nasArtists = null;
+        results.replaceChildren(el('p', 'music-library-hint', err.message || 'Could not reach the NAS music library.'));
+        return;
+    }
+    if (results.isConnected) renderArtistList(results);
+}
+
+function renderArtistList(results) {
+    const term = nasArtistFilter.trim().toLowerCase();
+    const shown = nasArtists.filter((a) => !term || a.name.toLowerCase().includes(term));
+    if (!shown.length) {
+        results.innerHTML = `<p class="empty-state"><i class="ph ph-microphone-stage"></i>${nasArtists.length ? 'No artists match.' : 'No artists on the NAS yet.'}</p>`;
+        return;
+    }
+    const list = el('ul', 'playlist-list');
+    for (const artist of shown) {
+        const li = el('li', 'playlist-row');
+        const open = el('button', 'playlist-open');
+        open.type = 'button';
+        const text = el('span', 'playlist-text');
+        text.append(el('strong', '', artist.name),
+            el('small', '', `${artist.albumCount} album${artist.albumCount === 1 ? '' : 's'}`));
+        open.append(el('i', 'ph-fill ph-microphone-stage'), text);
+        open.addEventListener('click', () => openArtist(artist));
+        li.append(open);
+        list.appendChild(li);
+    }
+    results.replaceChildren(list);
+}
+
+async function openArtist(artist) {
+    nasArtist = { id: artist.id, name: artist.name, songs: null };
+    renderLibrary();
+    try {
+        const songs = (await api(`/library/artists/${encodeURIComponent(artist.id)}/songs`)).map(fromNasSong);
+        if (nasArtist?.id !== artist.id) return;
+        nasArtist.songs = songs;
+    } catch (err) {
+        if (nasArtist?.id !== artist.id) return;
+        nasArtist = null;
+        showToast(err.message || 'Could not reach the NAS music library.', 'error');
+    }
+    if (openPlaylistId === NAS_VIEW) refreshLibrary();
+}
+
+function renderArtistSongs(body) {
+    if (!nasArtist.songs) {
+        body.innerHTML = '<p class="music-library-hint">Loading...</p>';
+        return;
+    }
+    renderNasSongs(body, nasArtist.songs, `NAS: ${nasArtist.name}`);
+}
+
+function renderNasSongs(results, songs, queueName) {
+    if (!songs.length) {
         results.innerHTML = '<p class="empty-state"><i class="ph ph-music-notes-simple"></i>No songs found.</p>';
         return;
     }
     const list = el('ul', 'music-list');
-    nasResults.forEach((song, index) => {
+    songs.forEach((song, index) => {
         const li = el('li', 'music-item');
         li.classList.toggle('is-playing', player.tracks[player.index]?.id === song.id);
         const info = el('div', 'music-item-info');
@@ -795,7 +921,7 @@ function renderNasResults(results) {
         info.append(el('i', 'ph-fill ph-hard-drives'), text);
         const play = iconButton('ph-fill ph-play', 'Play from here', 'play-music-item-btn');
         play.addEventListener('click', () => {
-            playQueue(nasResults, index, nasQuery ? `NAS: ${nasQuery}` : 'NAS library');
+            playQueue(songs, index, queueName);
             setLibraryOpen(false);
         });
         // VI: Lưu bài NAS vào playlist của mình (chia sẻ playlist thì khách nghe được qua link). EN: Save a NAS song to your playlist (sharing the playlist lets visitors hear it).
@@ -1140,7 +1266,9 @@ export function initMusic() {
             if (e.key === 'Escape') setLibraryOpen(false);
         });
         document.getElementById('music-library-back')?.addEventListener('click', () => {
-            openPlaylistId = null;
+            // VI: Đang xem một nghệ sĩ thì lùi về danh sách nghệ sĩ. EN: From an artist, go back to the artist list.
+            if (openPlaylistId === NAS_VIEW && nasArtist) nasArtist = null;
+            else openPlaylistId = null;
             renderLibrary();
         });
     }

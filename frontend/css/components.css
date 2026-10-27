@@ -185,6 +185,7 @@ EN: Shared components (card, button, input, modal, toast) and per-feature UI. */
 /* ---------- Inputs ---------- */
 input[type="text"],
 input[type="url"],
+input[type="search"],
 input[type="email"],
 input[type="password"],
 input[type="number"],
@@ -1402,6 +1403,44 @@ body.public-mode .music-player-container {
 .nas-search input {
     flex: 1;
     min-width: 0;
+}
+
+/* NAS library tabs: Songs / Artists */
+.nas-tabs {
+    display: flex;
+    gap: var(--space-1);
+    padding: 3px;
+    margin-bottom: var(--space-3);
+    border-radius: 999px;
+    background: var(--surface-2);
+}
+
+.nas-tab {
+    flex: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border: none;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-muted);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.nas-tab[aria-selected="true"] {
+    background: var(--surface);
+    color: var(--text);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+.nas-filter {
+    width: 100%;
+    margin-bottom: var(--space-3);
 }
 
 .music-item-info small {
