@@ -291,6 +291,138 @@ function setExpanded(on) {
     if (btn) btn.title = on ? 'Collapse player' : 'Show player';
 }
 
+// ---------- Dragging the island ----------
+// VI: Kéo đảo đi đâu cũng được; vị trí được nhớ theo hai cạnh gần nhất (vd. phải + dưới), nên khi mở rộng đảo
+//     nở về phía còn trống và không tràn khỏi màn hình. Chưa kéo lần nào thì CSS đặt ở góc dưới bên phải.
+// EN: Drag the island anywhere; its spot is remembered against the two nearest edges (e.g. right + bottom), so when
+//     it expands it grows towards the open space and stays on screen. Never dragged: CSS puts it bottom-right.
+const ISLAND_POS_KEY = 'studyhub_music_island_pos';
+const ISLAND_EDGE = 8;
+const DRAG_THRESHOLD = 6;
+
+function loadIslandPos() {
+    try {
+        const pos = JSON.parse(localStorage.getItem(ISLAND_POS_KEY));
+        if (pos && ['left', 'right'].includes(pos.h) && ['top', 'bottom'].includes(pos.v)
+            && Number.isFinite(pos.x) && Number.isFinite(pos.y)) return pos;
+    } catch (e) { /* ignore */ }
+    return null;
+}
+
+function saveIslandPos(pos) {
+    try { localStorage.setItem(ISLAND_POS_KEY, JSON.stringify(pos)); } catch (e) { /* ignore */ }
+}
+
+// VI: Khung của đảo bỏ qua transform (hiệu ứng phóng to lúc hiện ra không làm lệch vị trí).
+// EN: The island's box ignoring transforms (the pop-in scale animation doesn't shift the spot).
+function islandBox(container) {
+    return { left: container.offsetLeft, top: container.offsetTop, width: container.offsetWidth, height: container.offsetHeight };
+}
+
+function clampTo(value, max) {
+    return Math.max(ISLAND_EDGE, Math.min(value, max));
+}
+
+// VI: Từ khung hiện tại của đảo ra vị trí bám hai cạnh gần nhất, luôn nằm trong màn hình.
+// EN: From the island's current box to a spot held against the two nearest edges, always on screen.
+function islandPosFromRect(rect) {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const left = clampTo(rect.left, w - rect.width - ISLAND_EDGE);
+    const top = clampTo(rect.top, h - rect.height - ISLAND_EDGE);
+    const onLeft = left + rect.width / 2 < w / 2;
+    const onTop = top + rect.height / 2 < h / 2;
+    return {
+        h: onLeft ? 'left' : 'right',
+        x: Math.round(onLeft ? left : w - left - rect.width),
+        v: onTop ? 'top' : 'bottom',
+        y: Math.round(onTop ? top : h - top - rect.height),
+    };
+}
+
+function applyIslandPos(container, pos) {
+    const style = container.style;
+    style.left = pos ? (pos.h === 'left' ? `${pos.x}px` : 'auto') : '';
+    style.right = pos ? (pos.h === 'right' ? `${pos.x}px` : 'auto') : '';
+    style.top = pos ? (pos.v === 'top' ? `${pos.y}px` : 'auto') : '';
+    style.bottom = pos ? (pos.v === 'bottom' ? `${pos.y}px` : 'auto') : '';
+}
+
+// VI: Kéo lại vào trong màn hình (sau khi đổi cỡ cửa sổ hoặc mở rộng). EN: Pull back on screen (after a resize or expanding).
+//     Giữ nguyên hai cạnh đang bám, để mở rộng rồi thu gọn thì đảo về đúng chỗ cũ.
+//     Keeps the same two edges, so expanding then collapsing puts the island back where it was.
+function keepIslandOnScreen(container) {
+    const pos = loadIslandPos();
+    if (!pos || !container.classList.contains('active')) return;
+    const box = islandBox(container);
+    const x = clampTo(pos.x, window.innerWidth - box.width - ISLAND_EDGE);
+    const y = clampTo(pos.y, window.innerHeight - box.height - ISLAND_EDGE);
+    applyIslandPos(container, { ...pos, x, y });
+}
+
+function makeIslandDraggable(container) {
+    const head = container.querySelector('.music-player-head');
+    if (!head) return;
+    applyIslandPos(container, loadIslandPos());
+
+    let drag = null;
+    let justDragged = false;
+    head.addEventListener('pointerdown', (e) => {
+        // VI: Nút play/pause vẫn bấm bình thường. EN: The play/pause button still works as a button.
+        if (e.button !== 0 || e.target.closest('.music-toggle')) return;
+        const rect = islandBox(container);
+        drag = { id: e.pointerId, startX: e.clientX, startY: e.clientY, left: rect.left, top: rect.top, moving: false };
+    });
+    head.addEventListener('pointermove', (e) => {
+        if (!drag || e.pointerId !== drag.id) return;
+        const dx = e.clientX - drag.startX;
+        const dy = e.clientY - drag.startY;
+        if (!drag.moving) {
+            if (Math.hypot(dx, dy) < DRAG_THRESHOLD) return;
+            drag.moving = true;
+            head.setPointerCapture(e.pointerId);
+            container.classList.add('dragging');
+        }
+        const rect = islandBox(container);
+        applyIslandPos(container, {
+            h: 'left', x: clampTo(drag.left + dx, window.innerWidth - rect.width - ISLAND_EDGE),
+            v: 'top', y: clampTo(drag.top + dy, window.innerHeight - rect.height - ISLAND_EDGE),
+        });
+    });
+    const endDrag = (e) => {
+        if (!drag || e.pointerId !== drag.id) return;
+        if (drag.moving) {
+            container.classList.remove('dragging');
+            const pos = islandPosFromRect(islandBox(container));
+            applyIslandPos(container, pos);
+            saveIslandPos(pos);
+            // VI: Thả tay sau khi kéo không tính là bấm (không mở rộng đảo). EN: Letting go after a drag is not a tap (no expand).
+            justDragged = true;
+            setTimeout(() => { justDragged = false; }, 0);
+        }
+        drag = null;
+    };
+    head.addEventListener('pointerup', endDrag);
+    head.addEventListener('pointercancel', endDrag);
+    container.addEventListener('click', (e) => {
+        if (!justDragged) return;
+        e.stopPropagation();
+        e.preventDefault();
+    }, true);
+
+    // VI: Nhấp đúp để đưa đảo về góc mặc định. EN: Double-click to send the island back to its default corner.
+    head.addEventListener('dblclick', (e) => {
+        if (e.target.closest('.music-toggle')) return;
+        try { localStorage.removeItem(ISLAND_POS_KEY); } catch (err) { /* ignore */ }
+        applyIslandPos(container, null);
+    });
+
+    window.addEventListener('resize', () => keepIslandOnScreen(container));
+    container.addEventListener('transitionend', (e) => {
+        if (e.target === container && e.propertyName === 'width') keepIslandOnScreen(container);
+    });
+}
+
 function setPlaying(on) {
     player.playing = on;
     syncIsland();
@@ -554,6 +686,7 @@ function playAt(index) {
     mountTrack(track);
     renderPlayerHead();
     container.classList.add('active');
+    keepIslandOnScreen(container);
 }
 
 function playNext({ auto = false } = {}) {
@@ -1235,6 +1368,7 @@ export function initMusic() {
     // VI: Bấm đảo để mở rộng/thu gọn; thu gọn vẫn giữ iframe nên nhạc vẫn phát. Đóng thì gỡ iframe để dừng hẳn.
     // EN: Tap the island to expand/collapse; collapsed keeps the iframe so audio continues. Close removes it to stop playback.
     islandBtn?.addEventListener('click', () => setExpanded(!container.classList.contains('expanded')));
+    if (container) makeIslandDraggable(container);
     document.addEventListener('click', (e) => {
         if (container.classList.contains('expanded') && e.target.isConnected && !container.contains(e.target)) setExpanded(false);
     });
