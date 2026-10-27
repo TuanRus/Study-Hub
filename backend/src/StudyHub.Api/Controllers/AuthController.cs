@@ -10,7 +10,7 @@ namespace StudyHub.Api.Controllers;
 [ApiController]
 [Route("api/auth")]
 [Tags("Auth")]
-public class AuthController(AuthService auth, PasswordResetService passwordReset) : ControllerBase
+public class AuthController(AuthService auth, PasswordResetService passwordReset, PasswordPolicy passwordPolicy) : ControllerBase
 {
     private string? ClientIp => HttpContext.Connection.RemoteIpAddress is { } ip ? IpBanList.Normalize(ip) : null;
 
@@ -24,6 +24,10 @@ public class AuthController(AuthService auth, PasswordResetService passwordReset
         var result = await auth.RegisterAsync(req, ClientIp, ct);
         return CreatedAtAction(nameof(Me), result);
     }
+
+    /// <summary>Rules for a new password: minLength..maxLength characters with an uppercase letter, a lowercase letter, a digit and a special character.</summary>
+    [HttpGet("password-policy")]
+    public PasswordPolicyDto PasswordPolicy() => passwordPolicy.ToDto();
 
     /// <summary>Sign in with username or email.</summary>
     [HttpPost("login")]

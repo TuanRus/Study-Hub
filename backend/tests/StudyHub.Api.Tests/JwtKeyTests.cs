@@ -55,11 +55,11 @@ public class JwtKeyTests
         Assert.Equal(System.Net.HttpStatusCode.OK, (await client.GetAsync("/health")).StatusCode);
 
         var reserved = await client.PostAsJsonAsync("/api/auth/register",
-            new RegisterRequest(FactoryWithEnvFileNames.AdminName, "nas@example.com", "password123"));
+            new RegisterRequest(FactoryWithEnvFileNames.AdminName, "nas@example.com", "Password123!"));
         Assert.Equal(System.Net.HttpStatusCode.Conflict, reserved.StatusCode);
 
         var reg = await client.PostAsJsonAsync("/api/auth/register",
-            new RegisterRequest("envuser", "envuser@example.com", "password123"));
+            new RegisterRequest("envuser", "envuser@example.com", "Password123!"));
         Assert.Equal(System.Net.HttpStatusCode.Created, reg.StatusCode);
     }
 

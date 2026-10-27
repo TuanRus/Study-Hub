@@ -31,7 +31,7 @@ public class AbuseTests(AbuseFactory factory) : IClassFixture<AbuseFactory>
         var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add(TestIpStartupFilter.Header, ip);
         var name = NewName();
-        var res = await client.PostAsJsonAsync("/api/auth/register", new RegisterRequest(name, $"{name}@example.com", "password123"));
+        var res = await client.PostAsJsonAsync("/api/auth/register", new RegisterRequest(name, $"{name}@example.com", "Password123!"));
         res.EnsureSuccessStatusCode();
         var auth = (await res.Content.ReadFromJsonAsync<AuthResponse>(TestJson.Options))!;
         client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", auth.AccessToken);
@@ -148,7 +148,7 @@ public class AbuseTests(AbuseFactory factory) : IClassFixture<AbuseFactory>
         Assert.Equal(HttpStatusCode.Forbidden, (await client.GetAsync("/api/tasks")).StatusCode);
         var fresh = factory.CreateClient();
         fresh.DefaultRequestHeaders.Add(TestIpStartupFilter.Header, ip);
-        var reg = await fresh.PostAsJsonAsync("/api/auth/register", new RegisterRequest(NewName(), $"{NewName()}@example.com", "password123"));
+        var reg = await fresh.PostAsJsonAsync("/api/auth/register", new RegisterRequest(NewName(), $"{NewName()}@example.com", "Password123!"));
         Assert.Equal(HttpStatusCode.Forbidden, reg.StatusCode);
 
         // VI: IP khác vẫn dùng bình thường. EN: Other IPs still work.
@@ -156,7 +156,7 @@ public class AbuseTests(AbuseFactory factory) : IClassFixture<AbuseFactory>
 
         (await admin.DeleteAsync($"/api/admin/bans/{bans.Single().Id}")).EnsureSuccessStatusCode();
         Assert.DoesNotContain(await admin.GetFromJsonAsync<List<IpBanDto>>("/api/admin/bans", TestJson.Options) ?? [], b => b.Ip == ip);
-        reg = await fresh.PostAsJsonAsync("/api/auth/register", new RegisterRequest(NewName(), $"{NewName()}@example.com", "password123"));
+        reg = await fresh.PostAsJsonAsync("/api/auth/register", new RegisterRequest(NewName(), $"{NewName()}@example.com", "Password123!"));
         Assert.Equal(HttpStatusCode.Created, reg.StatusCode);
     }
 

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using StudyHub.Api.Common;
 
 namespace StudyHub.Api.Dtos;
 
@@ -7,7 +8,7 @@ public record RegisterRequest(
      RegularExpression("^[a-zA-Z0-9_.]+$", ErrorMessage = "Username may only contain letters, digits, '_' and '.'.")]
     string Username,
     [Required, EmailAddress, StringLength(256)] string Email,
-    [Required, StringLength(100, MinimumLength = 8)] string Password,
+    [Required, StringLength(PasswordPolicy.MaxLength)] string Password,
     [StringLength(64)] string? DisplayName = null,
     [StringLength(64)] string? TimeZone = null);
 
@@ -42,8 +43,8 @@ public record ForgotPasswordRequest([Required, EmailAddress, StringLength(256)] 
 public record ResetPasswordRequest(
     [Required, EmailAddress, StringLength(256)] string Email,
     [Required, RegularExpression("^\\s*[0-9]{6}\\s*$", ErrorMessage = "The code has 6 digits.")] string Code,
-    [Required, StringLength(100, MinimumLength = 8)] string NewPassword);
+    [Required, StringLength(PasswordPolicy.MaxLength)] string NewPassword);
 
 public record ChangePasswordRequest(
     [Required] string CurrentPassword,
-    [Required, StringLength(100, MinimumLength = 8)] string NewPassword);
+    [Required, StringLength(PasswordPolicy.MaxLength)] string NewPassword);

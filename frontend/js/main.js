@@ -14,6 +14,7 @@ import { bootSync } from './modules/sync.js';
 import { initAdmin, openAdmin, isAdmin } from './modules/admin.js';
 import { initAccount } from './modules/account.js';
 import { initForgotPassword } from './modules/forgotPassword.js';
+import { addPasswordToggles } from './utils/passwordField.js';
 import { initReport } from './modules/report.js';
 import { currentUserName } from './utils/api.js';
 
@@ -66,6 +67,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initProfile();
     initAccount();
     initForgotPassword();
+    addPasswordToggles();
     initAdmin();
     initTheme();
 

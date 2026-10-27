@@ -7,6 +7,7 @@
 import { showToast } from '../utils/toast.js';
 import { authApi, checkBackend, getSession, isBackendOnline, sessionUser, setSessionExpiredHandler } from '../utils/api.js';
 import { startSync, stopSync } from './sync.js';
+import { attachPasswordChecklist, passwordProblem } from '../utils/passwordField.js';
 
 export function initAuth() {
     const authBtn = document.getElementById('auth-btn');
@@ -23,6 +24,8 @@ export function initAuth() {
     const authEmail = document.getElementById('auth-email');
     const authConfirmPassword = document.getElementById('auth-confirm-password');
     const registerOnlyFields = document.querySelectorAll('.register-only');
+    const authPasswordRules = document.getElementById('auth-password-rules');
+    attachPasswordChecklist(authPassword, authPasswordRules, { placeholder: false });
 
     // VI: Biến trạng thái quản lý mode hiện tại (login/register). 
     // EN: State variable managing the current mode (login/register).
@@ -108,6 +111,8 @@ export function initAuth() {
                 document.querySelectorAll('.login-only').forEach(el => el.hidden = true);
                 authEmail.setAttribute('required', 'true');
                 authConfirmPassword.setAttribute('required', 'true');
+                if (authPasswordRules) authPasswordRules.hidden = false;
+                authPassword.autocomplete = 'new-password';
             } else {
                 authUsername.placeholder = 'Username or email...';
                 authSubmitBtn.textContent = 'Login';
@@ -115,6 +120,8 @@ export function initAuth() {
                 document.querySelectorAll('.login-only').forEach(el => el.hidden = false);
                 authEmail.removeAttribute('required');
                 authConfirmPassword.removeAttribute('required');
+                if (authPasswordRules) authPasswordRules.hidden = true;
+                authPassword.autocomplete = 'current-password';
             }
         });
     });
@@ -131,7 +138,6 @@ export function initAuth() {
             let user;
             if (currentAuthMode === 'register') {
                 if (password !== authConfirmPassword.value.trim()) return showError('Passwords do not match!');
-                if (password.length < 8) return showError('Password must be at least 8 characters.');
                 user = await authApi.register(username, authEmail.value.trim(), password);
             } else {
                 user = await authApi.login(username, password);
@@ -152,6 +158,13 @@ export function initAuth() {
             e.preventDefault();
             const username = authUsername.value.trim();
             const password = authPassword.value.trim();
+
+            // VI: Chỉ kiểm tra độ mạnh khi tạo mật khẩu mới, không chặn đăng nhập tài khoản cũ.
+            // EN: Strength is only checked for a new password, never blocking login to an existing account.
+            if (currentAuthMode === 'register') {
+                const problem = passwordProblem(password);
+                if (problem) return showError(problem);
+            }
 
             if (isBackendOnline() || await checkBackend()) {
                 await submitToServer(username, password);

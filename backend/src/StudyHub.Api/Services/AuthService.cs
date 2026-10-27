@@ -8,7 +8,8 @@ using StudyHub.Api.Entities;
 
 namespace StudyHub.Api.Services;
 
-public class AuthService(AppDbContext db, TokenService tokens, IPasswordHasher<User> hasher, AdminBootstrap admins)
+public class AuthService(AppDbContext db, TokenService tokens, IPasswordHasher<User> hasher, AdminBootstrap admins,
+    PasswordPolicy passwordPolicy)
 {
     public async Task<AuthResponse> RegisterAsync(RegisterRequest req, string? ip, CancellationToken ct)
     {
@@ -25,6 +26,7 @@ public class AuthService(AppDbContext db, TokenService tokens, IPasswordHasher<U
             throw new ConflictException("Email is already registered.");
         if (req.TimeZone is not null && !TimeZones.IsValid(req.TimeZone))
             throw new BadRequestException($"Unknown time zone '{req.TimeZone}'.");
+        passwordPolicy.EnsureStrong(req.Password);
 
         var user = new User
         {
@@ -124,6 +126,7 @@ public class AuthService(AppDbContext db, TokenService tokens, IPasswordHasher<U
         var user = await FindUserAsync(userId, ct);
         if (hasher.VerifyHashedPassword(user, user.PasswordHash, req.CurrentPassword) == PasswordVerificationResult.Failed)
             throw new BadRequestException("Current password is incorrect.");
+        passwordPolicy.EnsureStrong(req.NewPassword);
 
         user.PasswordHash = hasher.HashPassword(user, req.NewPassword);
         await RevokeAllAsync(userId, ct);
