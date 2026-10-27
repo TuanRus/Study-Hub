@@ -144,15 +144,14 @@ EN: Responsive. Tablet: stack columns. Mobile: sidebar becomes a bottom tab bar.
         margin-top: 0;
     }
 
-    /* VI: Điện thoại: header xuống dòng nên đảo nằm phía dưới, trên thanh menu. EN: Phones: the header wraps, so the island sits at the bottom, above the menu bar. */
+    /* VI: Điện thoại: góc dưới bên phải, trên thanh menu. EN: Phones: bottom-right corner, above the menu bar. */
     .music-player-container {
-        top: auto;
+        right: 12px;
         bottom: calc(76px + env(safe-area-inset-bottom));
     }
 
     body.public-mode .music-player-container {
-        top: calc(12px + env(safe-area-inset-top));
-        bottom: auto;
+        bottom: calc(16px + env(safe-area-inset-bottom));
     }
 
     .toast-root {
