@@ -29,6 +29,7 @@ public class NavidromeOptions
 public partial class NavidromeClient(HttpClient http, IOptions<NavidromeOptions> options, ILogger<NavidromeClient> logger)
 {
     private const int MaxResults = 50;
+    private const int MaxArtistAlbums = 50;
     private readonly NavidromeOptions _options = options.Value;
 
     public bool IsConfigured => _options.IsConfigured;
@@ -52,12 +53,55 @@ public partial class NavidromeClient(HttpClient http, IOptions<NavidromeOptions>
         if (!body.TryGetProperty(container, out var result) || !result.TryGetProperty("song", out var songs))
             return [];
 
-        return songs.EnumerateArray().Select(s => new LibrarySongDto(
-            s.GetProperty("id").GetString()!,
-            Text(s, "title") ?? "Unknown title",
-            Text(s, "artist"),
-            Text(s, "album"),
-            s.TryGetProperty("duration", out var d) && d.TryGetInt32(out var seconds) ? seconds : null)).ToList();
+        return songs.EnumerateArray().Select(ToSong).ToList();
+    }
+
+    /// <summary>All artists in the library, sorted by name.</summary>
+    public async Task<List<LibraryArtistDto>> GetArtistsAsync(CancellationToken ct)
+    {
+        EnsureConfigured();
+        using var doc = await GetJsonAsync(BuildUrl("getArtists"), ct);
+        var body = doc.RootElement.GetProperty("subsonic-response");
+        if (!body.TryGetProperty("artists", out var artists) || !artists.TryGetProperty("index", out var index))
+            return [];
+
+        // VI: Subsonic chia nghệ sĩ theo chữ cái đầu ("index"); gộp lại thành một danh sách.
+        // EN: Subsonic groups artists by first letter ("index"); flatten them into one list.
+        return index.EnumerateArray()
+            .Where(group => group.TryGetProperty("artist", out _))
+            .SelectMany(group => group.GetProperty("artist").EnumerateArray())
+            .Select(a => new LibraryArtistDto(
+                a.GetProperty("id").GetString()!,
+                Text(a, "name") ?? "Unknown artist",
+                a.TryGetProperty("albumCount", out var c) && c.TryGetInt32(out var count) ? count : 0))
+            .OrderBy(a => a.Name, StringComparer.CurrentCultureIgnoreCase)
+            .ToList();
+    }
+
+    /// <summary>Every song of an artist, album by album (at most <see cref="MaxArtistAlbums"/> albums).</summary>
+    public async Task<List<LibrarySongDto>> GetArtistSongsAsync(string artistId, CancellationToken ct)
+    {
+        EnsureConfigured();
+        List<string> albumIds;
+        using (var doc = await GetJsonAsync(BuildUrl("getArtist", ("id", artistId)), ct))
+        {
+            var body = doc.RootElement.GetProperty("subsonic-response");
+            if (!body.TryGetProperty("artist", out var artist)) throw new NotFoundException("Artist");
+            albumIds = artist.TryGetProperty("album", out var albums)
+                ? albums.EnumerateArray().Select(a => a.GetProperty("id").GetString()!).Take(MaxArtistAlbums).ToList()
+                : [];
+        }
+
+        // VI: Mỗi album một request, chạy song song. EN: One request per album, run in parallel.
+        var perAlbum = await Task.WhenAll(albumIds.Select(async id =>
+        {
+            using var doc = await GetJsonAsync(BuildUrl("getAlbum", ("id", id)), ct);
+            var body = doc.RootElement.GetProperty("subsonic-response");
+            return body.TryGetProperty("album", out var album) && album.TryGetProperty("song", out var songs)
+                ? songs.EnumerateArray().Select(ToSong).ToList()
+                : [];
+        }));
+        return perAlbum.SelectMany(songs => songs).ToList();
     }
 
     /// <summary>"Title · Artist" of a song, or null when Navidrome can't tell (the song still plays).</summary>
@@ -122,9 +166,13 @@ public partial class NavidromeClient(HttpClient http, IOptions<NavidromeOptions>
         var body = doc.RootElement.TryGetProperty("subsonic-response", out var b) ? b : default;
         if (body.ValueKind != JsonValueKind.Object || Text(body, "status") != "ok")
         {
-            var error = body.ValueKind == JsonValueKind.Object && body.TryGetProperty("error", out var e) ? Text(e, "message") : null;
-            logger.LogWarning("Navidrome returned an error: {Error}", error ?? "unknown");
+            var error = body.ValueKind == JsonValueKind.Object && body.TryGetProperty("error", out var e) ? e.Clone() : default;
             doc.Dispose();
+            // VI: Mã 70 của Subsonic = không tìm thấy. EN: Subsonic code 70 = not found.
+            if (error.ValueKind == JsonValueKind.Object && error.TryGetProperty("code", out var code) && code.TryGetInt32(out var c) && c == 70)
+                throw new NotFoundException("Item");
+            logger.LogWarning("Navidrome returned an error: {Error}",
+                (error.ValueKind == JsonValueKind.Object ? Text(error, "message") : null) ?? "unknown");
             throw Unavailable();
         }
         return doc;
@@ -149,6 +197,13 @@ public partial class NavidromeClient(HttpClient http, IOptions<NavidromeOptions>
 
     private static AppException Unavailable() =>
         new(StatusCodes.Status502BadGateway, "Music library unavailable", "Could not reach the NAS music library.");
+
+    private static LibrarySongDto ToSong(JsonElement s) => new(
+        s.GetProperty("id").GetString()!,
+        Text(s, "title") ?? "Unknown title",
+        Text(s, "artist"),
+        Text(s, "album"),
+        s.TryGetProperty("duration", out var d) && d.TryGetInt32(out var seconds) ? seconds : null);
 
     private static string? Text(JsonElement element, string name) =>
         element.TryGetProperty(name, out var value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
