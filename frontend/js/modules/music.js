@@ -727,10 +727,14 @@ export function playMusic(link) {
 //     truyền slug để khách nghe bài NAS qua hồ sơ; hồ sơ của chính mình (admin) thì lấy thẳng từ kho nhạc.
 // EN: Plays a profile song: a YouTube/Spotify link, or a NAS song ("nas:<id>"). On someone's bio page pass the
 //     slug so visitors hear the NAS song through the profile; your own profile (admin) streams from the library.
+//     Nhạc hồ sơ tự lặp lại khi hết bài. EN: The profile song loops when it ends.
 export function playProfileSong(link, slug = null) {
-    if (!isNasTrack({ url: link })) return playMusic(link);
-    player.repeat = false;
-    playQueue([{ id: 'profile-song', name: '', url: link, type: 'nas', profileSlug: slug }]);
+    const nas = isNasTrack({ url: link });
+    if (!nas && !getEmbedUrl(link)) return playMusic(link);
+    player.repeat = true;
+    playQueue([nas
+        ? { id: 'profile-song', name: '', url: link, type: 'nas', profileSlug: slug }
+        : { id: 'profile-song', name: '', url: link }]);
 }
 
 function stopPlayer() {
